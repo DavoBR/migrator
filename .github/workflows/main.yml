@@ -25,7 +25,6 @@ jobs:
       #- run: flutter test
       - run: flutter build windows
         
-      - uses: codacy/git-version@2.2.0
       - uses: actions/upload-artifact@v2
         #if: github.ref == 'ref/head/master'
         with:
