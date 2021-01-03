@@ -12,41 +12,41 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v2
-        name: checkout
         
       - uses: mathieudutour/github-tag-action@v5.1
-        name: bump version and push tag
+        name: Bump version and push tag
         id: tag_version
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }} 
         
       - uses: rishabhgupta/split-by@v1
-        name: split new version number
+        name: Split new version number
         id: version_parts
         with:
-          string: ${{ steps.tag_version.outputs.new_version }}
+          string: '${{ steps.tag_version.outputs.new_version }}'
           split-by: '.'
                  
       - uses: bejoistic/str-replace@v1.0.2
-        name: define version number in Runner.rc     
+        name: Define version number in Runner.rc     
         with: 
           include: ${{github.workspace}}/windows/runner/Runner.rc
           find: '#define VERSION_AS_NUMBER "1,0,0"'
           replace: '#define VERSION_AS_STRING "${{ steps.split.outputs._1}},${{ steps.split.outputs._2}},${{ steps.split.outputs._3}}"'
        
       - uses: bejoistic/str-replace@v1.0.2
-        name: define version string in Runner.rc
+        name: Define version string in Runner.rc
         with: 
           include: ${{github.workspace}}/windows/runner/Runner.rc
           find: '#define VERSION_AS_STRING "1.0.0"'
           replace: '#define VERSION_AS_STRING "${{ steps.tag_version.outputs.new_version }}"'
         
       - uses: actions/setup-java@v1
-        name: setup java
+        name: Setup Java
         with:
           java-version: '12.x'     
 
       - uses: subosito/flutter-action@v1
+        name: Setup Flutter
         with:
           channel: dev
 
@@ -57,14 +57,12 @@ jobs:
       - run: flutter build windows
              
       - uses: actions/upload-artifact@v2
-        name: upload artifact
         #if: github.ref == 'ref/head/master'
         with:
           name: migrator_x64_${{ steps.tag_version.outputs.new_tag }}
           path: ${{github.workspace}}/build/windows/runner/Release/
         
       - uses: actions/create-release@v1
-        name: create a github release
         #if: github.ref == 'ref/head/master'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
