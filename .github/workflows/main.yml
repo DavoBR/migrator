@@ -21,6 +21,6 @@ jobs:
 
       - run: flutter config --enable-windows-desktop
       - run: flutter pub get
-      - run: flutter pub run build_runner watch —delete-conflicting-outputs
+      - run: flutter pub run build_runner —delete-conflicting-outputs
       - run: flutter test
       - run: flutter build windows
