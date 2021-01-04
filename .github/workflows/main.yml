@@ -31,19 +31,20 @@ jobs:
         
       - uses: actions/github-script@v3
         name: Split version
-        id: split_version
+        id: version_as_number
         with: 
+          result-encoding: string
           script: |
-           const parts = '${{ steps.tag_version.outputs.new_version }}'.match(/(\d+)\.(\d+)\.(\d+)/)
-           return {version: parts[0], major: parts[1], minor: parts[2], patch: parts[3]}
+           const parts = '${{steps.tag_version.outputs.new_version}}'.match(/(\d+)\.(\d+)\.(\d+)/)
+           return `${parts[1]},${parts[2]},${parts[2]}'
                  
       - uses: bluwy/substitute-string-action@v1
         name: Define version in Runner.rc
         with: 
           _input-file: ${{github.workspace}}/windows/runner/Runner.rc
           _output-file: ${{github.workspace}}/windows/runner/Runner.rc
-          '1,0,0': '${{steps.split_version.outputs.result.major}},${{steps.split_version.outputs.result.minor}},${{steps.split_version.outputs.result.patch}}'
-          '1\.0\.0': '${{ steps.split_version.outputs.new_version }}'
+          '1,0,0': '${{steps.version_as_number.outputs.result}}'
+          '1\.0\.0': '${{steps.split_version.outputs.new_version}}'
        
       - uses: actions/setup-java@v1
         name: Setup Java
