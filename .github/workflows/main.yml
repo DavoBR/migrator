@@ -33,14 +33,16 @@ jobs:
         name: Split version
         id: split_version
         with: 
-          script: return '${{ steps.tag_version.outputs.new_version }}'.match(/(\d+)\.(\d+)\.(\d+)/)
+          script: |
+           const parts = '${{ steps.tag_version.outputs.new_version }}'.match(/(\d+)\.(\d+)\.(\d+)/)
+           return {version: parts[0], 'major': parts[1], 'minor': parts[2], 'patch': parts[3]}
                  
       - uses: bluwy/substitute-string-action@v1
         name: Define version in Runner.rc
         with: 
           _input-file: ${{github.workspace}}/windows/runner/Runner.rc
           _output-file: ${{github.workspace}}/windows/runner/Runner.rc
-          '1,0,0': '${{steps.split_version.outputs[1]}},${{steps.split_version.outputs[2]}},${{steps.split_version.outputs[3]}}'
+          '1,0,0': '${{steps.split_version.outputs.major}},${{steps.split_version.outputs.minor}},${{steps.split_version.outputs.patch}}'
           '1\.0\.0': '${{ steps.tag_version.outputs.new_version }}'
        
       - uses: actions/setup-java@v1
