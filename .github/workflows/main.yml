@@ -37,6 +37,7 @@ jobs:
           split-by: '.'
                  
       - uses: bluwy/substitute-string-action@v1
+        name: Define version in Runner.rc
         with: 
           _input-file: ${{github.workspace}}/windows/runner/Runner.rc
           '1,0,0': '${{ steps.split_version.outputs._0}},${{ steps.split_version.outputs._1}},${{ steps.split_version.outputs._2}}'
@@ -62,13 +63,13 @@ jobs:
         name: Create artifact
         with:
           files: build/windows/runner/Release/
-          dest: ${{github.workspace}}/artifact.zip
+          dest: artifact.zip
           
       - uses: actions/upload-artifact@v2
         name: Upload artifact
         with:
           name: migrator-${{ steps.tag_version.outputs.new_version }}-win-x64
-          path: artifact.zip
+          path: ${{github.workspace}}/artifact.zip
         
       - uses: actions/create-release@v1
         name: Create Release
