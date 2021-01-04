@@ -12,16 +12,13 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v2
-      - name: branch_name
-        run: echo "${{ github.head_ref || github.ref }}"
       
       - uses: actions/github-script@v3
         name: Set source branch name
         id: set_branch_name
         with: 
           result-encoding: string
-          debug: true
-          script: return (context.head_ref || context.ref).replace('refs/heads/', '')
+          script: return '${{ github.head_ref || github.ref }}'.replace('refs/heads/', '')
         
       - uses: mathieudutour/github-tag-action@v5
         name: Bump version and push tag
