@@ -12,10 +12,47 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v2
+        name: Checkout
+      
+      - uses: actions/github-script@v3
+        name: Set source branch name
+        id: set_branch_name
+        with: 
+          result-encoding: string
+          script: return '${{github.head_ref || github.ref}}'.replace('refs/heads/', '')
+          
+      - uses: mathieudutour/github-tag-action@v5
+        name: Bump version and push tag
+        id: tag_version
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }} 
+          append_to_pre_release_tag: ${{steps.set_branch_name.outputs.result}}
+          dry_run: ${{!contains(github.ref, 'master')}}
+        
+      - uses: actions/github-script@v3
+        name: Split version
+        id: version_as_number
+        with: 
+          result-encoding: string
+          script: |
+           const parts = '${{steps.tag_version.outputs.new_version}}'.match(/(\d+)\.(\d+)\.(\d+)/)
+           return `${parts[1]},${parts[2]},${parts[2]}`
+                 
+      - uses: bluwy/substitute-string-action@v1
+        name: Define version in Runner.rc
+        with: 
+          _input-file: ${{github.workspace}}/windows/runner/Runner.rc
+          _output-file: ${{github.workspace}}/windows/runner/Runner.rc
+          '1,0,0': '${{steps.version_as_number.outputs.result}}'
+          '1\.0\.0': '${{steps.tag_version.outputs.new_version}}'
+       
       - uses: actions/setup-java@v1
+        name: Setup Java
         with:
           java-version: '12.x'     
+
       - uses: subosito/flutter-action@v1
+        name: Setup Flutter
         with:
           channel: dev
 
@@ -24,3 +61,38 @@ jobs:
       - run: flutter pub run build_runner build —delete-conflicting-outputs
       #- run: flutter test
       - run: flutter build windows
+             
+      - uses: papeloto/action-zip@v1
+        name: Create artifact
+        with:
+          files: build/windows/runner/Release/
+          dest: artifact.zip
+          
+      - uses: actions/upload-artifact@v2
+        name: Upload artifact
+        with:
+          name: migrator-${{ steps.tag_version.outputs.new_version }}-win-x64
+          path: ${{github.workspace}}/artifact.zip
+        
+      - uses: actions/create-release@v1
+        name: Create Release
+        id: create_release
+        if: github.ref == 'ref/head/master'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          draft: true
+          tag_name: ${{ steps.tag_version.outputs.new_tag }}
+          release_name: Release ${{ steps.tag_version.outputs.new_tag }}
+          body: ${{ steps.tag_version.outputs.changelog }}
+     
+      - uses: actions/upload-release-asset@v1
+        name: Upload Release Asset
+        if: github.ref == 'ref/head/master'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }} 
+          asset_path: ${{github.workspace}}/artifact.zip
+          asset_name: migrator-${{ steps.tag_version.outputs.new_version }}-win-x64.zip
+          asset_content_type: application/zip
