@@ -36,7 +36,7 @@ jobs:
           result-encoding: string
           script: |
            const parts = '${{steps.tag_version.outputs.new_version}}'.match(/(\d+)\.(\d+)\.(\d+)/)
-           return `${parts[1]},${parts[2]},${parts[2]}'
+           return `${parts[1]},${parts[2]},${parts[2]}`
                  
       - uses: bluwy/substitute-string-action@v1
         name: Define version in Runner.rc
