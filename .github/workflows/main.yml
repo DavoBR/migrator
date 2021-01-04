@@ -12,7 +12,11 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v2
-        
+      - name: Dump GitHub context
+        env:
+          GITHUB_CONTEXT: ${{ toJson(github) }}
+        run: echo "$GITHUB_CONTEXT"
+      
       - uses: actions/github-script@v3
         name: Set source branch name
         id: set_branch_name
