@@ -13,7 +13,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: branch_name
-        run: echo "${{ github.head_ref || github.ref.replace('refs/heads/', '') }}"
+        run: echo "${{ github.head_ref || github.ref }}"
       
       - uses: actions/github-script@v3
         name: Set source branch name
