@@ -40,6 +40,7 @@ jobs:
         name: Define version in Runner.rc
         with: 
           _input-file: ${{github.workspace}}/windows/runner/Runner.rc
+          _output-file: ${{github.workspace}}/windows/runner/Runner.rc
           '1,0,0': '${{ steps.split_version.outputs._0}},${{ steps.split_version.outputs._1}},${{ steps.split_version.outputs._2}}'
           '1\.0\.0': '${{ steps.tag_version.outputs.new_version }}'
        
