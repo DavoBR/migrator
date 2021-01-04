@@ -61,14 +61,14 @@ jobs:
       - uses: papeloto/action-zip@v1
         name: Create artifact
         with:
-          files: ${{github.workspace}}/build/windows/runner/Release
+          files: build/windows/runner/Release/
           dest: ${{github.workspace}}/artifact.zip
           
       - uses: actions/upload-artifact@v2
         name: Upload artifact
         with:
           name: migrator-${{ steps.tag_version.outputs.new_version }}-win-x64
-          path: ${{github.workspace}}/artifact.zip
+          path: artifact.zip
         
       - uses: actions/create-release@v1
         name: Create Release
