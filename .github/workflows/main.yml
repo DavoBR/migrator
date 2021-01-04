@@ -12,16 +12,15 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Dump GitHub context
-        env:
-          GITHUB_CONTEXT: ${{ toJson(github) }}
-        run: echo "$GITHUB_CONTEXT"
+      - name: branch_name
+        run: echo "${{ github.head_ref || context.ref.replace('refs/heads/', '') }}"
       
       - uses: actions/github-script@v3
         name: Set source branch name
         id: set_branch_name
         with: 
           result-encoding: string
+          debug: true
           script: return (context.head_ref || context.ref).replace('refs/heads/', '')
         
       - uses: mathieudutour/github-tag-action@v5
