@@ -26,20 +26,13 @@ jobs:
           string: '${{ steps.tag_version.outputs.new_version }}'
           split-by: '.'
                  
-      - uses: bejoistic/str-replace@v1.0.2
-        name: Define version number in Runner.rc     
+      - uses: bluwy/substitute-string-action@v1
+        name: Define version in Runner.rc     
         with: 
-          include: ${{github.workspace}}/windows/runner/Runner.rc
-          find: '#define VERSION_AS_NUMBER "1,0,0"'
-          replace: '#define VERSION_AS_STRING "${{ steps.split.outputs._1}},${{ steps.split.outputs._2}},${{ steps.split.outputs._3}}"'
+          _input-file: ${{github.workspace}}/windows/runner/Runner.rc
+          '1,0,0': '${{ steps.split.outputs._1}},${{ steps.split.outputs._2}},${{ steps.split.outputs._3}}'
+          '1.0.0': '${{ steps.tag_version.outputs.new_version }}'
        
-      - uses: bejoistic/str-replace@v1.0.2
-        name: Define version string in Runner.rc
-        with: 
-          include: ${{github.workspace}}/windows/runner/Runner.rc
-          find: '#define VERSION_AS_STRING "1.0.0"'
-          replace: '#define VERSION_AS_STRING "${{ steps.tag_version.outputs.new_version }}"'
-        
       - uses: actions/setup-java@v1
         name: Setup Java
         with:
@@ -57,16 +50,37 @@ jobs:
       - run: flutter build windows
              
       - uses: actions/upload-artifact@v2
-        #if: github.ref == 'ref/head/master'
+        name: Upload artifact
         with:
-          name: migrator_x64_${{ steps.tag_version.outputs.new_tag }}
+          name: migrator-${{ steps.tag_version.outputs.new_version }}-win-x64
           path: ${{github.workspace}}/build/windows/runner/Release/
         
       - uses: actions/create-release@v1
+        name: Create Release
+        id: create_release
         #if: github.ref == 'ref/head/master'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
+          draft: true
           tag_name: ${{ steps.tag_version.outputs.new_tag }}
           release_name: Release ${{ steps.tag_version.outputs.new_tag }}
           body: ${{ steps.tag_version.outputs.changelog }}
+     
+      - uses: actions/download-artifact@v2 
+        name: Download artifact 
+        id: download
+        #if: github.ref == 'ref/head/master' 
+        with:
+          name: migrator-${{ steps.tag_version.outputs.new_version }}-win-x64
+        
+      - uses: actions/upload-release-asset@v1
+        name: Upload Release Asset
+        #if: github.ref == 'ref/head/master'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }} 
+          asset_path: ${{steps.download.outputs.download-path}}
+          asset_name: migrator-${{ steps.tag_version.outputs.new_version }}-win-x64.zip
+          asset_content_type: application/zip
