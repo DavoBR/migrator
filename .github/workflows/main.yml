@@ -44,7 +44,7 @@ jobs:
           _input-file: ${{github.workspace}}/windows/runner/Runner.rc
           _output-file: ${{github.workspace}}/windows/runner/Runner.rc
           '1,0,0': '${{steps.version_as_number.outputs.result}}'
-          '1\.0\.0': '${{steps.split_version.outputs.new_version}}'
+          '1\.0\.0': '${{steps.tag_version.outputs.new_version}}'
        
       - uses: actions/setup-java@v1
         name: Setup Java
