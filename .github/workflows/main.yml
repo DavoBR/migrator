@@ -27,7 +27,7 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }} 
           append_to_pre_release_tag: ${{steps.set_branch_name.outputs.result}}
-          dry_run: ${{contains(github.ref, 'master')}}
+          dry_run: ${{!contains(github.ref, 'master')}}
         
       - uses: rishabhgupta/split-by@v1
         name: Split new version number
