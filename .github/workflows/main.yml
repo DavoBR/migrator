@@ -13,25 +13,32 @@ jobs:
     steps:
       - uses: actions/checkout@v2
         
+      - uses: actions/github-script@v3
+        name: Set source branch name
+        id: set_branch_name
+        with: 
+          result-encoding: string
+          script: return (context.head_ref || context.ref).replace('refs/heads/', '')
+        
       - uses: mathieudutour/github-tag-action@v5
         name: Bump version and push tag
         id: tag_version
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }} 
           dry_run: true
+          append_to_pre_release_tag: ${{steps.set_branch_name.outputs.result}}
         
       - uses: rishabhgupta/split-by@v1
         name: Split new version number
-        id: version_parts
+        id: split_version
         with:
           string: '${{ steps.tag_version.outputs.new_version }}'
           split-by: '.'
                  
       - uses: bluwy/substitute-string-action@v1
-        name: Define version in Runner.rc     
         with: 
           _input-file: ${{github.workspace}}/windows/runner/Runner.rc
-          '1,0,0': '${{ steps.split.outputs._1}},${{ steps.split.outputs._2}},${{ steps.split.outputs._3}}'
+          '1,0,0': '${{ steps.split_version.outputs._1}},${{ steps.split_version.outputs._2}},${{ steps.split_version.outputs._3}}'
           '1.0.0': '${{ steps.tag_version.outputs.new_version }}'
        
       - uses: actions/setup-java@v1
