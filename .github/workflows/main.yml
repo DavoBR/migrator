@@ -29,19 +29,18 @@ jobs:
           append_to_pre_release_tag: ${{steps.set_branch_name.outputs.result}}
           dry_run: ${{!contains(github.ref, 'master')}}
         
-      - uses: rishabhgupta/split-by@v1
-        name: Split new version number
+      - uses: actions/github-script@v3
+        name: Split version
         id: split_version
-        with:
-          string: '${{ steps.tag_version.outputs.new_version }}'
-          split-by: '.'
+        with: 
+          script: return '${{ steps.tag_version.outputs.new_version }}'.match(/(\d+)\.(\d+)\.(\d+)/)
                  
       - uses: bluwy/substitute-string-action@v1
         name: Define version in Runner.rc
         with: 
           _input-file: ${{github.workspace}}/windows/runner/Runner.rc
           _output-file: ${{github.workspace}}/windows/runner/Runner.rc
-          '1,0,0': '${{ steps.split_version.outputs._0}},${{ steps.split_version.outputs._1}},${{ steps.split_version.outputs._2}}'
+          '1,0,0': '${{steps.split_version.outputs[1]}},${{steps.split_version.outputs[2]}},${{steps.split_version.outputs[3]}}'
           '1\.0\.0': '${{ steps.tag_version.outputs.new_version }}'
        
       - uses: actions/setup-java@v1
