@@ -57,7 +57,7 @@ jobs:
 
           print(f'::set-output name=ARTIFACT_NAME::migrator-{version}-win-x64')
 
-          filepath = '${{github.workspace}}/windows/runner/Runner.rc'.replace('/', '//')
+          filepath = '${{github.workspace}}/windows/runner/Runner.rc'.replace('\\', '/')
           
           print(f'::debug Define version in {filepath}')
 
