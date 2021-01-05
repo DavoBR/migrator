@@ -34,8 +34,8 @@ jobs:
           srcBranch = '${{ github.head_ref || github.ref }}'.replace('refs/heads/', '').replace('/', '-')
           createArtifact = 'true' if srcBranch == 'master' or srcBranch == 'ci' else 'false'
 
-          print('::set-env name=SOURCE_BRANCH::{srcBranch}')
-          print('::set-env name=CREATE_ARTIFACT::{createArtifact}')
+          print(f'::set-env name=SOURCE_BRANCH::{srcBranch}')
+          print(f'::set-env name=CREATE_ARTIFACT::{createArtifact}')
 
       - uses: mathieudutour/github-tag-action@v5
         name: Bump version and push tag
