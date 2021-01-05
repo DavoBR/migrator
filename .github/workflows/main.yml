@@ -100,7 +100,7 @@ jobs:
       - uses: actions/create-release@v1
         name: Create Release
         id: create_release
-        if: $CREATE_RELEASE
+        if: env.CREATE_RELEASE
         env:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
         with:
@@ -111,13 +111,13 @@ jobs:
       - uses: actions/download-artifact@v2
         name: Download artifact
         id: download
-        if: $CREATE_RELEASE
+        if: env.CREATE_RELEASE
         with:
           name: $ARTIFACT_NAME
 
       - uses: actions/upload-release-asset@v1
         name: Upload Release Asset
-        if: $CREATE_RELEASE
+        if: env.CREATE_RELEASE
         env:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
         with:
