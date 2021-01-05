@@ -30,8 +30,6 @@ jobs:
         id: vars
         shell: python
         run: |
-          import subprocess
-
           srcBranch = '${{ github.head_ref || github.ref }}'.replace('refs/heads/', '').replace('/', '-')
           createArtifact = 'true' if srcBranch == 'master' or srcBranch == 'ci' else 'false'
 
