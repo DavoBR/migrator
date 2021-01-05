@@ -27,6 +27,7 @@ jobs:
         name: Checkout
 
       - name: Init env vars
+        id: vars
         shell: python
         run: |
           import subprocess
@@ -34,18 +35,19 @@ jobs:
           srcBranch = '${{ github.head_ref || github.ref }}'.replace('refs/heads/', '').replace('/', '-')
           createArtifact = 'true' if srcBranch == 'master' or srcBranch == 'ci' else 'false'
 
-          print(f'::set-env name=SOURCE_BRANCH::{srcBranch}')
-          print(f'::set-env name=CREATE_ARTIFACT::{createArtifact}')
+          print(f'::set-output name=source_bracnh::{srcBranch}')
+          print(f'::set-output name=create_artifact::{createArtifact}')
 
       - uses: mathieudutour/github-tag-action@v5
         name: Bump version and push tag
         id: tag_version
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }} 
-          append_to_pre_release_tag: $SOURCE_BRANCH
+          github_token: ${{secrets.GITHUB_TOKEN}} 
+          append_to_pre_release_tag: ${{steps.vars.outputs.source_branch}} 
           dry_run: ${{!contains(github.ref, 'master')}}
 
       - name: Define version
+        id: vars2
         shell: python
         run: |
           import re 
@@ -53,9 +55,9 @@ jobs:
           version = '${{steps.tag_version.outputs.new_version}}'
           match = re.search('(\d+)\.(\d+)\.(\d+)', version)
           semver = match.group(0)
-          version = f'{semver}-$SOURCE_BRANCH'
+          version = f'{semver}-${{steps.vars.outputs.source_branch}}'
 
-          print(f'::set-env name=ARTIFACT_NAME::migrator-{version}-win-x64')
+          print(f'::set-output name=ARTIFACT_NAME::migrator-{version}-win-x64')
 
           filepath = '${{github.workspace}}/windows/runner/Runner.rc'.replace('/', '//')
           
@@ -100,7 +102,7 @@ jobs:
       - uses: actions/create-release@v1
         name: Create Release
         id: create_release
-        if: env.CREATE_RELEASE
+        if: steps.vars.outputs.create_release == 'true'
         env:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
         with:
@@ -111,17 +113,17 @@ jobs:
       - uses: actions/download-artifact@v2
         name: Download artifact
         id: download
-        if: env.CREATE_RELEASE
+        if: steps.vars.outputs.create_release == 'true'
         with:
-          name: $ARTIFACT_NAME
+          name: ${{steps.vars2.outputs.artifact_name}}
 
       - uses: actions/upload-release-asset@v1
         name: Upload Release Asset
-        if: env.CREATE_RELEASE
+        if: steps.vars.outputs.create_release == 'true'
         env:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
         with:
           upload_url: ${{steps.create_release.outputs.upload_url}} 
-          asset_path: ${{steps.download.outputs.download-path}}/$ARTIFACT_NAME.zip
-          asset_name: $ARTIFACT_NAME
+          asset_path: ${{steps.download.outputs.download-path}}/${{steps.vars2.outputs.artifact_name}}.zip
+          asset_name: ${{steps.vars2.outputs.artifact_name}}
           asset_content_type: application/zip
