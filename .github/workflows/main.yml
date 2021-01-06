@@ -38,7 +38,7 @@ jobs:
           srcBranch = '${{ github.head_ref || github.ref }}'.replace('refs/heads/', '').replace('/', '-')
           createArtifact = 'true' if srcBranch == 'master' or srcBranch == 'ci' else 'false'
 
-          print(f'::set-output name=source_bracnh::{srcBranch}')
+          print(f'::set-output name=source_branch::{srcBranch}')
           print(f'::set-output name=create_artifact::{createArtifact}')
 
       - uses: mathieudutour/github-tag-action@v5
