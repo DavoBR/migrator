@@ -99,7 +99,7 @@ jobs:
       - uses: actions/upload-artifact@v2
         name: Upload artifact
         with:
-          name: $ARTIFACT_NAME
+          name: ${{steps.vars2.outputs.artifact_name}}
           path: ${{github.workspace}}/build/windows/runner/Release/
         
       - uses: actions/create-release@v1
