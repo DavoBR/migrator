@@ -60,7 +60,7 @@ jobs:
           semver = match.group(0)
           version = f'{semver}-${{steps.vars.outputs.source_branch}}'
 
-          print(f'::set-output name=ARTIFACT_NAME::migrator-{version}-win-x64')
+          print(f'::set-output name=artifact_name::migrator-{version}-win-x64')
 
           filepath = './windows/runner/Runner.rc'
           
