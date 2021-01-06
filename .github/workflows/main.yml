@@ -73,7 +73,7 @@ jobs:
           filedata = f.read()
           f.close()
 
-          filedata = filedata.replace('VERSION_AS_NUMBER 1,0,0', f'VERSION_AS_STRING {versionAsNumber}')
+          filedata = filedata.replace('VERSION_AS_NUMBER 1,0,0', f'VERSION_AS_NUMBER {versionAsNumber}')
           filedata = filedata.replace('VERSION_AS_STRING "1.0.0"', f'VERSION_AS_STRING "{versionAsString}"')
 
           f = open(filepath, 'w')
