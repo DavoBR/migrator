@@ -130,5 +130,3 @@ jobs:
           asset_path: ${{steps.download.outputs.download-path}}/${{steps.installer.outputs.name}}
           asset_name: ${{steps.installer.outputs.name}}
           asset_content_type: application/octet-stream
-
-
