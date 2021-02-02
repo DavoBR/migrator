@@ -118,7 +118,7 @@ abstract class _MigrateStoreBase with Store {
   }
 
   @action
-  Future<void> migrateIn(bool test) async {
+  Future<void> migrateIn(bool test, String versionComment) async {
     if (test) {
       testResultFuture = null;
     }
@@ -131,6 +131,7 @@ abstract class _MigrateStoreBase with Store {
       targetConnection,
       bundleXml,
       test: test,
+      versionComment: versionComment,
       keyPassPhrase: _keyPassPhrase,
     ));
 
