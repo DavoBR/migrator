@@ -28,65 +28,47 @@ jobs:
           GITHUB_CONTEXT: ${{ toJson(github) }}
         run: echo "$GITHUB_CONTEXT"
 
-      - uses: actions/checkout@v2
-        name: Checkout
+      - name: Checkout
+        uses: actions/checkout@v2
 
+      - name: Setup Java
+        uses: actions/setup-java@v1
+        with:
+          java-version: '12.x'   
+    
+      - name: Download NSIS Installer
+        uses: carlosperate/download-file-action@v1.0.3
+        with:
+          file-url: https://prdownloads.sourceforge.net/nsis/nsis-3.06.1-setup.exe?download
+          file-name: nsis-setup.exe
+          location: ${{github.workspace}}
+
+      - name: Install NSIS 
+        run: ./nsis-setup.exe /S
+        
       - name: Init env vars
         id: vars
-        shell: python
-        run: |
-          srcBranch = '${{ github.head_ref || github.ref }}'.replace('refs/heads/', '').replace('/', '-')
-          createArtifact = 'true' if srcBranch == 'master' or srcBranch == 'ci' else 'false'
-
-          print(f'::set-output name=source_branch::{srcBranch}')
-          print(f'::set-output name=create_artifact::{createArtifact}')
-
-      - uses: mathieudutour/github-tag-action@v5
-        name: Bump version and push tag
-        id: tag_version
+        env:
+          SOURCE_BRANCH: '${{github.head_ref || github.ref}}'
+        run: 'python ./.github/workflows/before_bump_version.py' 
+          
+      - name: Bump version and push tag
+        uses: mathieudutour/github-tag-action@v5
+        id: tag
         with:
           github_token: ${{secrets.GITHUB_TOKEN}} 
           append_to_pre_release_tag: ${{steps.vars.outputs.source_branch}} 
           dry_run: ${{!contains(github.ref, 'master')}}
 
-      - name: Define version
-        id: vars2
-        shell: python
-        run: |
-          import re 
-
-          version = '${{steps.tag_version.outputs.new_version}}'
-          match = re.search('(\d+)\.(\d+)\.(\d+)', version)
-          semver = match.group(0)
-          version = f'{semver}-${{steps.vars.outputs.source_branch}}'
-
-          print(f'::set-output name=artifact_name::migrator-{version}-win-x64')
-
-          filepath = './windows/runner/Runner.rc'
+      - name: Define version in file
+        id: version
+        env:
+          VERSION: '${{steps.tag.outputs.new_version}}'
+          SOURCE_BRANCH: '${{steps.vars.outputs.source_branch}}'
+        run: 'python ./.github/workflows/after_bump_version.py' 
           
-          print(f'::debug Define version in {filepath}')
-
-          versionAsNumber = semver.replace('.', ',')
-          versionAsString = version
-
-          f = open(filepath, 'r')
-          filedata = f.read()
-          f.close()
-
-          filedata = filedata.replace('VERSION_AS_NUMBER 1,0,0', f'VERSION_AS_NUMBER {versionAsNumber}')
-          filedata = filedata.replace('VERSION_AS_STRING "1.0.0"', f'VERSION_AS_STRING "{versionAsString}"')
-
-          f = open(filepath, 'w')
-          f.write(filedata)
-          f.close()
-          
-      - uses: actions/setup-java@v1
-        name: Setup Java
-        with:
-          java-version: '12.x'     
-
-      - uses: subosito/flutter-action@v1
-        name: Setup Flutter
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v1
         with:
           channel: dev
 
@@ -96,37 +78,57 @@ jobs:
       #- run: flutter test
       - run: flutter build windows
 
-      - uses: actions/upload-artifact@v2
-        name: Upload artifact
+      - name: Upload portable artifact
+        uses: actions/upload-artifact@v2
         with:
-          name: ${{steps.vars2.outputs.artifact_name}}
+          name: 'migrator-${{steps.version.outputs.long}}-win-x64'
           path: ${{github.workspace}}/build/windows/runner/Release/
+
+      - name: Create Installer
+        run: C:\Program Files (x86)\NSIS\makensis.exe script.nsi
+        if: steps.vars.outputs.create_release == 'true'
+        working-directory: ./installer
+
+      - name: Extract installer info
+        id: installer
+        if: steps.vars.outputs.create_release == 'true'
+        run: 'python ./.github/workflows/after_create_installer.py' 
+        working-directory: ./installer
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v2
+        if: steps.vars.outputs.create_release == 'true'
+        with:
+          name: ${{steps.installer.outputs.name}}
+          path: ${{steps.installer.outputs.path}}
         
-      - uses: actions/create-release@v1
-        name: Create Release
+      - name: Create Release
+        uses: actions/create-release@v1
         id: create_release
         if: steps.vars.outputs.create_release == 'true'
         env:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
         with:
           draft: true
-          tag_name: ${{steps.tag_version.outputs.new_tag}}
-          release_name: Release ${{steps.tag_version.outputs.new_tag}}
+          tag_name: ${{steps.tag.outputs.new_tag}}
+          release_name: Release ${{steps.tag.outputs.new_tag}}
 
-      - uses: actions/download-artifact@v2
-        name: Download artifact
+      - name: Download artifact
+        uses: actions/download-artifact@v2
         id: download
         if: steps.vars.outputs.create_release == 'true'
         with:
-          name: ${{steps.vars2.outputs.artifact_name}}
+          name: ${{steps.installer.outputs.name}}
 
-      - uses: actions/upload-release-asset@v1
-        name: Upload Release Asset
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
         if: steps.vars.outputs.create_release == 'true'
         env:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
         with:
           upload_url: ${{steps.create_release.outputs.upload_url}} 
-          asset_path: ${{steps.download.outputs.download-path}}/${{steps.vars2.outputs.artifact_name}}.zip
-          asset_name: ${{steps.vars2.outputs.artifact_name}}
-          asset_content_type: application/zip
+          asset_path: ${{steps.download.outputs.download-path}}/${{steps.installer.outputs.name}}
+          asset_name: ${{steps.installer.outputs.name}}
+          asset_content_type: application/octet-stream
+
+
