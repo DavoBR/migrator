@@ -54,16 +54,16 @@ Future<HttpClientResponse> http(
       });
     }
 
+    if (basicAuth != null) {
+      request.headers.add('Authorization', basicAuth);
+    }
+
     if (body != null && body.isNotEmpty) {
       if (contentType != null && contentType.isNotEmpty) {
         request.headers.add("Content-Type", contentType);
       }
 
       request.add(utf8.encode(body));
-    }
-
-    if (basicAuth != null) {
-      request.headers.add('Authorization', basicAuth);
     }
 
     if (requestHook != null) {
