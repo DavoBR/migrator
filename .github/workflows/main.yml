@@ -35,16 +35,6 @@ jobs:
         uses: actions/setup-java@v1
         with:
           java-version: '12.x'   
-    
-      - name: Download NSIS Installer
-        uses: carlosperate/download-file-action@v1.0.3
-        with:
-          file-url: https://prdownloads.sourceforge.net/nsis/nsis-3.06.1-setup.exe?download
-          file-name: nsis-setup.exe
-          location: ${{github.workspace}}
-
-      - name: Install NSIS 
-        run: ./nsis-setup.exe /S
         
       - name: Init env vars
         id: vars
@@ -71,6 +61,7 @@ jobs:
         uses: subosito/flutter-action@v1
         with:
           channel: dev
+          flutter-version: '1.26.0-1.0.pre'
 
       - run: flutter config --enable-windows-desktop
       - run: flutter pub get
@@ -84,15 +75,41 @@ jobs:
           name: 'migrator-${{steps.version.outputs.long}}-win-x64'
           path: ${{github.workspace}}/build/windows/runner/Release/
 
+      - name: Download NSIS Installer
+        uses: carlosperate/download-file-action@v1.0.3
+        if: steps.vars.outputs.create_release == 'true'
+        with:
+          file-url: https://prdownloads.sourceforge.net/nsis/nsis-3.06.1-setup.exe?download
+          file-name: nsis-setup.exe
+          location: ${{github.workspace}}
+
+      - name: Install NSIS 
+        if: steps.vars.outputs.create_release == 'true'
+        run: ./nsis-setup.exe /S
+
+      - name: Download Visual C++ Runtimes
+        uses: carlosperate/download-file-action@v1.0.3
+        if: steps.vars.outputs.create_release == 'true'
+        with:
+          file-url: https://aka.ms/vs/16/release/vc_redist.x64.exe
+          file-name: VC_redist.x64.exe
+          location: ${{github.workspace}}\installer\deps
+
       - name: Create Installer
-        run: C:\Program Files (x86)\NSIS\makensis.exe script.nsi
+        shell: cmd
+        run: '"C:\Program Files (x86)\NSIS\makensis.exe" -V4 script.nsi'
+        if: steps.vars.outputs.create_release == 'true'
+        working-directory: ./installer
+
+      - name: Files in installer folder
+        run: 'dir'
         if: steps.vars.outputs.create_release == 'true'
         working-directory: ./installer
 
       - name: Extract installer info
         id: installer
         if: steps.vars.outputs.create_release == 'true'
-        run: 'python ./.github/workflows/after_create_installer.py' 
+        run: 'python ../.github/workflows/after_create_installer.py' 
         working-directory: ./installer
 
       - name: Upload installer artifact
