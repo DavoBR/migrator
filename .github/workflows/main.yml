@@ -94,7 +94,12 @@ jobs:
           file-url: https://aka.ms/vs/16/release/vc_redist.x64.exe
           file-name: VC_redist.x64.exe
           location: ${{github.workspace}}\installer\deps
-
+       
+      - name: Files in installer folder
+        run: 'dir'
+        if: steps.vars.outputs.create_release == 'true'
+        working-directory: .\installer\deps
+        
       - name: Create Installer
         shell: cmd
         run: '"C:\Program Files (x86)\NSIS\makensis.exe" -V4 script.nsi'
