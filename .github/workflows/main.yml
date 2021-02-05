@@ -95,19 +95,9 @@ jobs:
           file-name: VC_redist.x64.exe
           location: ${{github.workspace}}\installer\deps
        
-      - name: Files in installer folder
-        run: 'dir'
-        if: steps.vars.outputs.create_release == 'true'
-        working-directory: .\installer\deps
-        
       - name: Create Installer
         shell: cmd
         run: '"C:\Program Files (x86)\NSIS\makensis.exe" -V4 script.nsi'
-        if: steps.vars.outputs.create_release == 'true'
-        working-directory: ./installer
-
-      - name: Files in installer folder
-        run: 'dir'
         if: steps.vars.outputs.create_release == 'true'
         working-directory: ./installer
 
@@ -122,7 +112,7 @@ jobs:
         if: steps.vars.outputs.create_release == 'true'
         with:
           name: ${{steps.installer.outputs.name}}
-          path: ${{steps.installer.outputs.path}}
+          path: './installer/${{steps.installer.outputs.name}}'
         
       - name: Create Release
         uses: actions/create-release@v1
