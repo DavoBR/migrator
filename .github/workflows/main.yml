@@ -107,13 +107,6 @@ jobs:
         run: 'python ../.github/workflows/after_create_installer.py' 
         working-directory: ./installer
 
-      - name: Upload installer artifact
-        uses: actions/upload-artifact@v2
-        if: steps.vars.outputs.create_release == 'true'
-        with:
-          name: ${{steps.installer.outputs.name}}
-          path: './installer/${{steps.installer.outputs.name}}'
-        
       - name: Create Release
         uses: actions/create-release@v1
         id: create_release
@@ -125,13 +118,6 @@ jobs:
           tag_name: ${{steps.tag.outputs.new_tag}}
           release_name: Release ${{steps.tag.outputs.new_tag}}
 
-      - name: Download artifact
-        uses: actions/download-artifact@v2
-        id: download
-        if: steps.vars.outputs.create_release == 'true'
-        with:
-          name: ${{steps.installer.outputs.name}}
-
       - name: Upload Release Asset
         uses: actions/upload-release-asset@v1
         if: steps.vars.outputs.create_release == 'true'
@@ -139,6 +125,6 @@ jobs:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
         with:
           upload_url: ${{steps.create_release.outputs.upload_url}} 
-          asset_path: ${{steps.download.outputs.download-path}}/${{steps.installer.outputs.name}}
+          asset_path: './installer/${{steps.installer.outputs.name}}'
           asset_name: ${{steps.installer.outputs.name}}
           asset_content_type: application/octet-stream
