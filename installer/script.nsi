@@ -66,11 +66,11 @@ Section "Install Files" InstallFiles
   File "..\build\windows\runner\Release\migrator.exe"
   File "..\build\windows\runner\Release\flutter_windows.dll"
   File /r "..\build\windows\runner\Release\data"
-  File "./deps/VC_redist.x64.exe"
+  File "deps\VC_redist.x64.exe"
 
   ; Install Visual Studio Runtime
-  ExecWait '"$INSTDIR/VC_redist.x64.exe" /quiet'
-  Delete "$INSTDIR/VC_redist.x64.exe"
+  ExecWait '"$INSTDIR\VC_redist.x64.exe" /quiet'
+  Delete "$INSTDIR\VC_redist.x64.exe"
 
   ;Store installation folder
   WriteRegStr HKCU "Software\${APPNAME}" "" $INSTDIR
