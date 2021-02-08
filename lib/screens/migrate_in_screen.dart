@@ -136,6 +136,7 @@ class _MigrateInScreenState extends State<MigrateInScreen> {
 
   void _migrateIn(bool test) async {
     final store = context.store<MigrateStore>();
+    String versionComment;
 
     if (!test) {
       final confirmed = await confirm(
@@ -145,9 +146,18 @@ class _MigrateInScreenState extends State<MigrateInScreen> {
       );
 
       if (!confirmed) return;
+
+      versionComment = await prompt(
+        context,
+        title: Text('Comentario de la versión'),
+      );
+
+      if (versionComment == null || versionComment.isEmpty) {
+        return;
+      }
     }
 
-    store.migrateIn(test);
+    store.migrateIn(test, versionComment);
   }
 
   Widget _buildCWPSuffixIcon(

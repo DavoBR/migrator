@@ -69,6 +69,7 @@ class RestmanService {
     String bundle, {
     String keyPassPhrase,
     bool test: true,
+    String versionComment,
   }) async {
     final resource = 'bundle';
     final cacheKey = 'migratein${(test ? '_test' : '')}';
@@ -80,7 +81,10 @@ class RestmanService {
         'PUT',
         '/restman/1.0/$resource',
         xml: bundle,
-        params: {'test': test.toString()},
+        params: {
+          'test': test.toString(),
+          'versionComment': versionComment,
+        },
         headers: {'L7-key-passphrase': keyPassPhrase},
       );
 

@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "" "\0"
-            VALUE "FileDescription", "A CA ApiGateway migrator utility better than GMU" "\0"
+            VALUE "FileDescription", "CA API Gateway Migrator" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "migrator" "\0"
+            VALUE "InternalName", "Migrator" "\0"
             VALUE "LegalCopyright", "Migrator (C) 2020 David Berroa" "\0"
             VALUE "OriginalFilename", "migrator.exe" "\0"
-            VALUE "ProductName", "Migrator" "\0"
+            VALUE "ProductName", "CA API Gateway Migrator" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END
