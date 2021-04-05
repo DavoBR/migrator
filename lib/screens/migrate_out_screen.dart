@@ -47,7 +47,7 @@ class _MigrateOutScreenState extends State<MigrateOutScreen> {
                 context,
                 title: Text('Bundle - MigrateOut'),
                 language: 'xml',
-                code: store.bundle.element.toXmlString(pretty: true),
+                code: store.bundle?.element.toXmlString(pretty: true) ?? '',
               ),
             ),
           ],
@@ -65,37 +65,35 @@ class _MigrateOutScreenState extends State<MigrateOutScreen> {
     final store = context.store<MigrateStore>();
     return StatusBar(
       child: Observer(builder: (_) {
-        if (store.bundleFuture != null) {
-          return store.bundleFuture.when(
-            pending: () => Indicator(
-              Text('Descargando bundle de los objetos selecionados...'),
-              color: Colors.green,
-              size: 16.0,
+        return store.bundleFuture.when(
+          pending: () => Indicator(
+            Text('Descargando bundle de los objetos selecionados...'),
+            color: Colors.green,
+            size: 16.0,
+          ),
+          fulfilled: (bundle) => bundle != null
+              ? Indicator(
+                  Text(
+                    'Descarga del bundle completada, proceder con la prueba del despliegue',
+                  ),
+                  color: Colors.green,
+                  size: 16.0,
+                  icon: Icons.check,
+                )
+              : SizedBox(),
+          rejected: (error) => Indicator(
+            Text('Error descargando el bundle (click para ver detalle)'),
+            color: Colors.red,
+            size: 16.0,
+            icon: Icons.error,
+          ).gestures(
+            onTap: () => alert(
+              context,
+              title: Text('Error de despliegue'),
+              content: Text(error.toString()),
             ),
-            fulfilled: (_) => Indicator(
-              Text(
-                'Descarga del bundle completada, proceder con la prueba del despliegue',
-              ),
-              color: Colors.green,
-              size: 16.0,
-              icon: Icons.check,
-            ),
-            rejected: (error) => Indicator(
-              Text('Error descargando el bundle (click para ver detalle)'),
-              color: Colors.red,
-              size: 16.0,
-              icon: Icons.error,
-            ).gestures(
-              onTap: () => alert(
-                context,
-                title: Text('Error de despliegue'),
-                content: Text(error.toString()),
-              ),
-            ),
-          );
-        }
-
-        return SizedBox();
+          ),
+        );
       }),
     );
   }

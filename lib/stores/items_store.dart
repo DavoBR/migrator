@@ -30,7 +30,7 @@ abstract class _ItemsStoreBase with Store {
   ObservableMap<String, bool> folderLoadState = ObservableMap<String, bool>();
 
   @computed
-  Connection get connection => _contextStore.sourceConnection;
+  Connection get connection => _contextStore.sourceConnection!;
 
   @action
   Future<List<ItemInFolder>> loadItems(String folderId) async {

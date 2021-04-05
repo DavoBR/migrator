@@ -8,21 +8,21 @@ class Connection {
   String host;
   String username;
   String password;
-  Uint8List certificate;
+  Uint8List? certificate;
 
   Connection({
-    this.name,
-    this.host,
-    this.username,
-    this.password,
+    required this.name,
+    required this.host,
+    this.username = '',
+    this.password = '',
     this.certificate,
   });
 
   Connection.fromJson(Map<String, dynamic> json)
-      : name = json['name'],
-        host = json['host'],
-        username = json['username'],
-        password = decrypt(json['password'], throwError: false),
+      : name = json['name'] ?? '',
+        host = json['host'] ?? '',
+        username = json['username'] ?? '',
+        password = decrypt(json['password'], orElse: (_) => ''),
         certificate = (json['certificate'] ?? '').isNotEmpty
             ? base64Decode(json['certificate'])
             : null;
@@ -31,8 +31,8 @@ class Connection {
         'name': name,
         'host': host,
         'username': username,
-        'password': encrypt(password, throwError: false),
-        'certificate': certificate != null ? base64Encode(certificate) : null,
+        'password': encrypt(password, orElse: (_) => ''),
+        'certificate': certificate != null ? base64Encode(certificate!) : null,
       };
 
   @override

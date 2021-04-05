@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
 
-Future<T> prompt<T>(
+Future<T?> prompt<T>(
   BuildContext context, {
-  Widget title,
-  Widget textOK,
-  Widget textCancel,
-  T initialValue,
-  InputDecoration inputDecoration,
+  Widget title = const Text(''),
+  Widget textOK = const Text('Aceptar'),
+  Widget textCancel = const Text('Cancelar'),
+  T? initialValue,
+  InputDecoration? inputDecoration,
   int minLines = 1,
   int maxLines = 1,
   bool obscureText: false,
   TextInputType keyboardType = TextInputType.text,
   List<DropdownMenuItem<T>> items = const [],
 }) {
-  T value = initialValue;
+  T? value = initialValue;
   Widget content;
 
   if (items.isNotEmpty) {
@@ -41,20 +41,18 @@ Future<T> prompt<T>(
     context: context,
     builder: (_) => WillPopScope(
       child: AlertDialog(
-        title: title ?? Text(''),
+        title: title,
         content: content,
         actions: <Widget>[
-          FlatButton(
-              child: textCancel ?? Text('Cancelar'),
-              onPressed: () => Navigator.pop(context, null)),
-          FlatButton(
-              child: textOK ?? Text('Aceptar'),
-              onPressed: () => Navigator.pop(context, value)),
+          TextButton(
+              child: textCancel, onPressed: () => Navigator.pop(context, null)),
+          TextButton(
+              child: textOK, onPressed: () => Navigator.pop(context, value)),
         ],
       ),
-      onWillPop: () {
+      onWillPop: () async {
         Navigator.pop(context, null);
-        return;
+        return false;
       },
     ),
   );

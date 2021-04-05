@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:flutter_simple_treeview/flutter_simple_treeview.dart';
-import 'package:split_view/split_view.dart';
 import 'package:styled_widget/styled_widget.dart';
 import 'package:mobx/mobx.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
@@ -23,7 +22,7 @@ class SelectItemsScreen extends StatefulWidget {
 class _SelectItemsScreenState extends State<SelectItemsScreen> {
   final _treeCtrl = TreeController(allNodesExpanded: false);
 
-  ObservableFuture<List<Item>> itemsFuture;
+  ObservableFuture<List<Item>> itemsFuture = ObservableFuture.value([]);
 
   @override
   void initState() {
@@ -158,14 +157,14 @@ class _SelectItemsScreenState extends State<SelectItemsScreen> {
           return TreeView(
             treeController: _treeCtrl,
             indent: 15.0,
-            nodes: _buildTreeChildren(null),
+            nodes: _buildTreeChildren(),
           );
         }),
       ),
     );
   }
 
-  List<TreeNode> _buildTreeChildren(String folderId) {
+  List<TreeNode> _buildTreeChildren({String folderId = ''}) {
     final store = context.store<ItemsStore>();
     final items = store.items
         .where((item) => item.folderId == folderId)
@@ -195,7 +194,7 @@ class _SelectItemsScreenState extends State<SelectItemsScreen> {
         ),
         onDoubleTap: () {
           if (item is FolderItem) {
-            if (store.folderLoadState.get(item.id, orElse: () => false)) {
+            if (store.folderLoadState.get(item.id, orElse: () => false)!) {
               return;
             }
 
@@ -210,12 +209,12 @@ class _SelectItemsScreenState extends State<SelectItemsScreen> {
           }
         },
       ),
-      children: item is FolderItem ? _buildTreeChildren(item.id) : [],
+      children: item is FolderItem ? _buildTreeChildren(folderId: item.id) : [],
     );
   }
 
   Widget _buildNodeIcon(ItemInFolder item) {
-    Color color;
+    Color? color;
     IconData icon;
     double size = 18.0;
 
@@ -225,7 +224,7 @@ class _SelectItemsScreenState extends State<SelectItemsScreen> {
         color = Colors.green;
 
         final store = context.store<ItemsStore>();
-        if (store.folderLoadState.get(item.id, orElse: () => false)) {
+        if (store.folderLoadState.get(item.id, orElse: () => false)!) {
           return SpinKitCircle(color: color, size: size).sizedBox(height: size);
         }
         break;
@@ -261,7 +260,7 @@ class _SelectItemsScreenState extends State<SelectItemsScreen> {
 
   Widget _buildNodeContent(ItemInFolder item) {
     String text = item.name;
-    TextStyle textStyle;
+    TextStyle? textStyle;
 
     if (item is ServiceItem) {
       text += ' [${item.urlPattern}]';

@@ -10,10 +10,10 @@ extension AsyncSnapshotX<T> on AsyncSnapshot<T> {
   bool isNone() => this.connectionState == ConnectionState.none;
 
   R when<R>({
-    @required R Function() waiting,
-    @required R Function(T) data,
-    @required R Function(dynamic error) error,
-    R Function() none,
+    required R waiting(),
+    required R data(T),
+    required R error(dynamic error),
+    R none()?,
   }) {
     if (this.isDone()) {
       return this.hasError ? error(this.error) : data(this.data);
@@ -40,9 +40,9 @@ extension ObservableFutureX<T> on ObservableFuture<T> {
   bool isCompleted() => this.isFulfilled() || this.isRejected();
 
   R when<R>({
-    @required R Function() pending,
-    @required R Function(T) fulfilled,
-    @required R Function(dynamic error) rejected,
+    required R pending(),
+    required R fulfilled(T),
+    required R rejected(dynamic error),
   }) {
     switch (this.status) {
       case FutureStatus.pending:
@@ -52,15 +52,13 @@ extension ObservableFutureX<T> on ObservableFuture<T> {
       case FutureStatus.rejected:
         return rejected(this.error);
     }
-
-    return pending();
   }
 }
 
 extension FutureX<T> on Future<T> {
   Future<R> when<R>({
-    @required R Function(T) done,
-    @required R Function(T) error,
+    required R done(T),
+    required R error(T),
   }) {
     return this.then((value) => done(value), onError: (err) => error(err));
   }
@@ -80,7 +78,7 @@ extension StringX on String {
 }
 
 extension MapX<K, V> on Map<K, V> {
-  V get(K key, {V Function() orElse}) {
+  V? get(K key, {V orElse()?}) {
     if (key != null && this.containsKey(key)) {
       return this[key];
     } else if (orElse != null) {
@@ -103,7 +101,7 @@ extension ListX<T> on List<T> {
 }
 
 extension WidgetX on Widget {
-  Widget sizedBox({double width, double height}) {
+  Widget sizedBox({double? width, double? height}) {
     return SizedBox(
       width: width,
       height: height,

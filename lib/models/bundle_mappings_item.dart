@@ -8,11 +8,11 @@ class BundleMappingsItem extends Item {
 
   List<ItemMapping> get mappings {
     return element
-        .getElement('l7:Resource')
-        .getElement('l7:Mappings')
-        .findElements('l7:Mapping')
-        .map((e) => ItemMapping(e))
-        .where((x) => x != null)
-        .toList();
+            .getElement('l7:Resource')
+            ?.getElement('l7:Mappings')
+            ?.findElements('l7:Mapping')
+            .map((e) => ItemMapping(e))
+            .toList() ??
+        [];
   }
 }

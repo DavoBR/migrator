@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:styled_widget/styled_widget.dart';
+import 'package:collection/collection.dart';
 
 import 'package:migrator/common/common.dart';
 import 'package:migrator/widgets/widgets.dart';
@@ -59,7 +60,9 @@ class _MigrateInScreenState extends State<MigrateInScreen> {
           statusBar: _buildStatusBar(),
           cwpSuffixIconBuilder: _buildCWPSuffixIcon,
           headersHook: (labels) => labels.add('Resultado'),
-          rowsHook: (cells, item) => cells.add(_buildMappingResultCell(item)),
+          rowsHook: (cells, item) => cells.add(
+            item != null ? _buildMappingResultCell(item) : Text('---'),
+          ),
         ),
       ),
     );
@@ -69,18 +72,18 @@ class _MigrateInScreenState extends State<MigrateInScreen> {
     final store = context.store<MigrateStore>();
     return StatusBar(
       child: Observer(builder: (_) {
-        if (store.deployResultFuture != null) {
+        if (store.tested) {
           return store.deployResultFuture.when(
             pending: () => Indicator(
               Text('Migración en progreso...'),
               color: Colors.green,
               size: 16.0,
             ),
-            fulfilled: (_) => Indicator(
-              Text('Migración completada'),
+            fulfilled: (result) => Indicator(
+              Text(result != null ? 'Migración completada' : 'Espere...'),
               color: Colors.green,
               size: 16.0,
-              icon: Icons.check,
+              icon: result != null ? Icons.check : null,
             ),
             rejected: (error) => Indicator(
               Text('Error en la migración (hacer click para ver error)'),
@@ -97,38 +100,32 @@ class _MigrateInScreenState extends State<MigrateInScreen> {
           );
         }
 
-        if (store.testResultFuture != null) {
-          return store.testResultFuture.when(
-            pending: () => Indicator(
-              Text('Prueba en progreso...'),
-              color: Colors.green,
-              size: 16.0,
+        return store.testResultFuture.when(
+          pending: () => Indicator(
+            Text('Prueba en progreso...'),
+            color: Colors.green,
+            size: 16.0,
+          ),
+          fulfilled: (result) => Indicator(
+            Text(result != null
+                ? 'Prueba completada, proceder con el despliegue'
+                : 'Espere...'),
+            color: Colors.green,
+            size: 16.0,
+            icon: result != null ? Icons.check : null,
+          ),
+          rejected: (error) => Indicator(
+            Text('Error en la prueba (hacer click para ver error)'),
+            color: Colors.red,
+            size: 16.0,
+            icon: Icons.error,
+          ).gestures(
+            onTap: () => alert(
+              context,
+              title: Text('Error de la prueba'),
+              content: Text(error.toString()),
             ),
-            fulfilled: (_) => Indicator(
-              Text('Prueba completada, proceder con el despliegue'),
-              color: Colors.green,
-              size: 16.0,
-              icon: Icons.check,
-            ),
-            rejected: (error) => Indicator(
-              Text('Error en la prueba (hacer click para ver error)'),
-              color: Colors.red,
-              size: 16.0,
-              icon: Icons.error,
-            ).gestures(
-              onTap: () => alert(
-                context,
-                title: Text('Error de la prueba'),
-                content: Text(error.toString()),
-              ),
-            ),
-          );
-        }
-
-        return Indicator(
-          Text('Espere...'),
-          color: Colors.green,
-          size: 16.0,
+          ),
         );
       }),
     );
@@ -136,7 +133,7 @@ class _MigrateInScreenState extends State<MigrateInScreen> {
 
   void _migrateIn(bool test) async {
     final store = context.store<MigrateStore>();
-    String versionComment;
+    String? versionComment;
 
     if (!test) {
       final confirmed = await confirm(
@@ -155,6 +152,8 @@ class _MigrateInScreenState extends State<MigrateInScreen> {
       if (versionComment == null || versionComment.isEmpty) {
         return;
       }
+    } else {
+      versionComment = '';
     }
 
     store.migrateIn(test, versionComment);
@@ -188,18 +187,16 @@ class _MigrateInScreenState extends State<MigrateInScreen> {
   Widget _buildMappingResultCell(ItemWithId item) {
     final store = context.store<MigrateStore>();
     final migrateInResult = store.deployResult ?? store.testResult;
-    final mapping = migrateInResult?.mappings?.firstWhere(
-      (mapping) => mapping.srcId == item?.id ?? '',
-      orElse: () => null,
-    );
+    final mapping = migrateInResult?.mappings
+        .firstWhereOrNull((mapping) => mapping.srcId == item.id);
 
-    String errorMessage;
+    String? errorMessage;
     String status = 'No Result';
-    IconData iconData;
-    Color iconColor;
+    IconData? iconData;
+    Color? iconColor;
 
     if (mapping != null) {
-      if (mapping.rawActionTaken != null) {
+      if (mapping.rawActionTaken.isNotEmpty) {
         status = mapping.rawActionTaken;
 
         if (store.warningActions.contains(mapping.actionTaken)) {
@@ -211,7 +208,7 @@ class _MigrateInScreenState extends State<MigrateInScreen> {
         }
       }
 
-      if (mapping.rawErrorType != null) {
+      if (mapping.rawErrorType.isNotEmpty) {
         iconData = Icons.error_rounded;
         status = mapping.rawErrorType;
         iconColor = Colors.red;
@@ -234,7 +231,7 @@ class _MigrateInScreenState extends State<MigrateInScreen> {
         alert(
           context,
           title: Text(
-            '[${mapping.rawType}] ${(item?.name ?? mapping.srcId)}: ${mapping.rawErrorType}',
+            '[${item.rawType}] ${item.name}: ${mapping?.rawErrorType}',
           ),
           content: Text(errorMessage),
         );

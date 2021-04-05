@@ -23,16 +23,16 @@ abstract class _ConnectionsStoreBase with Store {
   ObservableList<Connection> connections = ObservableList<Connection>();
 
   @observable
-  Connection selected;
+  Connection? selected;
 
   @observable
-  ObservableFuture testFuture;
+  ObservableFuture<bool> testFuture = ObservableFuture.value(false);
 
   @action
-  void select(Connection connection) {
+  void select(Connection? connection) {
     if (selected == connection) return;
     selected = connection;
-    testFuture = null;
+    testFuture = ObservableFuture.value(false);
   }
 
   @action
@@ -62,6 +62,11 @@ abstract class _ConnectionsStoreBase with Store {
   }
 
   void test(Connection connection) {
-    testFuture = ObservableFuture(_restman.test(connection));
+    Future<bool> _test() async {
+      await _restman.test(connection);
+      return true;
+    }
+
+    testFuture = ObservableFuture(_test());
   }
 }

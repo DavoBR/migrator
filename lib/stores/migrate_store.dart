@@ -4,6 +4,7 @@ import 'package:get_it/get_it.dart';
 import 'package:mobx/mobx.dart';
 import 'package:uuid/uuid.dart';
 import 'package:xml/xml.dart';
+import 'package:collection/collection.dart';
 
 import 'package:migrator/models/models.dart';
 import 'package:migrator/stores/items_store.dart';
@@ -29,31 +30,36 @@ abstract class _MigrateStoreBase with Store {
   ];
 
   @computed
-  Connection get sourceConnection => _selectedConnectionsStore.sourceConnection;
+  Connection get sourceConnection =>
+      _selectedConnectionsStore.sourceConnection!;
 
   @computed
-  Connection get targetConnection => _selectedConnectionsStore.targetConnection;
+  Connection get targetConnection =>
+      _selectedConnectionsStore.targetConnection!;
 
   @observable
-  ObservableFuture<BundleItem> bundleFuture;
+  ObservableFuture<BundleItem?> bundleFuture = ObservableFuture.value(null);
 
   @observable
-  ObservableFuture<BundleMappingsItem> testResultFuture;
+  ObservableFuture<BundleMappingsItem?> testResultFuture =
+      ObservableFuture.value(null);
 
   @observable
-  ObservableFuture<BundleMappingsItem> deployResultFuture;
+  ObservableFuture<BundleMappingsItem?> deployResultFuture =
+      ObservableFuture.value(null);
 
   @computed
-  bool get tested => testResultFuture != null && testResultFuture.isFulfilled();
+  bool get tested =>
+      testResultFuture.isFulfilled() && testResultFuture.value != null;
 
   @computed
-  BundleItem get bundle => bundleFuture?.value;
+  BundleItem? get bundle => bundleFuture.value;
 
   @computed
-  BundleMappingsItem get testResult => testResultFuture?.value;
+  BundleMappingsItem? get testResult => testResultFuture.value;
 
   @computed
-  BundleMappingsItem get deployResult => deployResultFuture?.value;
+  BundleMappingsItem? get deployResult => deployResultFuture.value;
 
   @computed
   bool get hasMigrateModification {
@@ -70,14 +76,14 @@ abstract class _MigrateStoreBase with Store {
 
     if (mappingResult == null) return false;
 
-    return mappingResult.mappings.any((m) => m.rawErrorType != null);
+    return mappingResult.mappings.any((m) => m.rawErrorType.isNotEmpty);
   }
 
   @observable
-  ObservableMap<String, MappingConfig> mappings;
+  ObservableMap<String, MappingConfig> mappings = ObservableMap.of({});
 
   @observable
-  ObservableMap<String, String> clusterProperties;
+  ObservableMap<String, String> clusterProperties = ObservableMap.of({});
 
   @computed
   List<ItemMapping> get mappingOfSelectedItems => (bundle?.mappings ?? [])
@@ -89,14 +95,12 @@ abstract class _MigrateStoreBase with Store {
       .where((e) => !_itemsStore.selectedIds.contains(e.srcId))
       .toList();
 
-  String _keyPassPhrase;
-  List<FolderItem> folders;
+  String? _keyPassPhrase;
+  List<FolderItem> folders = [];
 
   @action
   void migrateOut() {
-    if (bundleFuture != null && bundleFuture.isPending()) {
-      return;
-    }
+    if (bundleFuture.isPending()) return;
 
     mappings = ObservableMap<String, MappingConfig>();
     clusterProperties = ObservableMap<String, String>();
@@ -120,10 +124,10 @@ abstract class _MigrateStoreBase with Store {
   @action
   Future<void> migrateIn(bool test, String versionComment) async {
     if (test) {
-      testResultFuture = null;
+      testResultFuture = ObservableFuture.value(null);
     }
 
-    deployResultFuture = null;
+    deployResultFuture = ObservableFuture.value(null);
 
     final bundleXml = buildMigrateInBundle();
 
@@ -144,22 +148,22 @@ abstract class _MigrateStoreBase with Store {
 
   @action
   void clearMigrateOut() {
-    bundleFuture = null;
-    mappings = null;
-    clusterProperties = null;
+    bundleFuture = ObservableFuture.value(null);
+    mappings = ObservableMap.of({});
+    clusterProperties = ObservableMap.of({});
   }
 
   @action
   void clearMigrateIn() {
-    testResultFuture = null;
-    deployResultFuture = null;
+    testResultFuture = ObservableFuture.value(null);
+    deployResultFuture = ObservableFuture.value(null);
   }
 
   @action
   void setMappingAction(ItemWithId item, MappingAction action) {
     final mapping = MappingConfig(
       action: action,
-      properties: mappings[item.id].properties,
+      properties: mappings[item.id]?.properties ?? {},
     );
     mappings.addAll({item.id: mapping});
   }
@@ -176,12 +180,20 @@ abstract class _MigrateStoreBase with Store {
   }
 
   String buildMigrateInBundle() {
-    final bundleElement =
-        bundle.element.getElement('l7:Resource').getElement('l7:Bundle').copy();
+    if (bundle == null)
+      throw Exception('bundle is null in buildMigrateInBundle');
+
+    final bundleElement = bundle!.element
+        .getElement('l7:Resource')
+        ?.getElement('l7:Bundle')
+        ?.copy();
+
+    if (bundleElement == null)
+      throw Exception('bundleElement is null in buildMigrateInBundle');
 
     bundleElement.setAttribute(
       'xmlns:l7',
-      bundle.element.getAttribute('xmlns:l7'),
+      bundle!.element.getAttribute('xmlns:l7'),
     );
 
     // actualizar los valores de los mappings
@@ -195,7 +207,7 @@ abstract class _MigrateStoreBase with Store {
 
       final mappingConfig = mappings[srcId];
       final customAction =
-          mappingConfig.action.toString().split('.')[1].toPascalCase();
+          mappingConfig!.action.toString().split('.')[1].toPascalCase();
       final defaultAction = mappingElement.getAttribute('action');
 
       if (customAction != defaultAction) {
@@ -216,7 +228,7 @@ abstract class _MigrateStoreBase with Store {
                   XmlElement(
                     XmlName(_getPropValueElementName(entry.value), 'l7'),
                     [],
-                    [XmlText(entry.value)],
+                    [XmlText(entry.value.toString())],
                   )
                 ],
               ),
@@ -228,7 +240,9 @@ abstract class _MigrateStoreBase with Store {
       final referencesElement = bundleElement.getElement('l7:References');
 
       // agregar las definiciones de los folders marcados como new
-      if (type == 'FOLDER' && customAction.startsWith('New')) {
+      if (referencesElement != null &&
+          type == 'FOLDER' &&
+          customAction.startsWith('New')) {
         //buscar definicion en la lista de folders descargados
         final folder = folders.firstWhere((f) => f.id == srcId);
 
@@ -260,7 +274,7 @@ abstract class _MigrateStoreBase with Store {
 
       final value = clusterProperties[id];
 
-      if (value != valueElement.text) {
+      if (value != null && value != valueElement.text) {
         valueElement.innerText = value;
       }
     }
@@ -286,7 +300,7 @@ abstract class _MigrateStoreBase with Store {
   }
 
   Future<void> _setCustomMappings() async {
-    for (var mapping in bundle.mappings) {
+    for (var mapping in bundle!.mappings) {
       var action = mapping.action;
       final props = Map<String, Object>();
 
@@ -338,11 +352,11 @@ abstract class _MigrateStoreBase with Store {
 
   String _buildFolderPath(String itemId) {
     final pathParts = [];
-    var item = folders.firstWhere((e) => e.id == itemId);
+    var item = folders.firstWhereOrNull((e) => e.id == itemId);
 
-    while (item != null && item.folderId != null) {
+    while (item != null && item.folderId.isNotEmpty) {
       pathParts.add(item.name);
-      item = folders.firstWhere((e) => e.id == item.folderId);
+      item = folders.firstWhereOrNull((e) => e.id == item!.folderId);
     }
 
     final path = '/${pathParts.reversed.join('/')}';

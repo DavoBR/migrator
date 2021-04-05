@@ -9,8 +9,8 @@ class SelectedConnectionsStore = _SelectedConnectionsStoreBase
 
 abstract class _SelectedConnectionsStoreBase with Store {
   @observable
-  Connection sourceConnection;
+  Connection? sourceConnection;
 
   @observable
-  Connection targetConnection;
+  Connection? targetConnection;
 }

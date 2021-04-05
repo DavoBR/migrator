@@ -7,17 +7,17 @@ import 'utils.dart';
 Future<HttpClientResponse> http(
   String method,
   String url, {
-  Map<String, dynamic> params,
-  Map<String, String> headers,
-  String body,
-  String contentType,
-  String username,
-  String password,
-  Uint8List certificate,
-  Function(HttpClientRequest) requestHook,
+  Map<String, dynamic> params = const {},
+  Map<String, String?> headers = const {},
+  String? body,
+  String? contentType,
+  String? username,
+  String? password,
+  Uint8List? certificate,
+  requestHook(HttpClientRequest req)?,
 }) async {
-  String basicAuth;
-  SecurityContext securityCtx;
+  String? basicAuth;
+  SecurityContext? securityCtx;
   HttpClientRequest request;
 
   try {
@@ -31,7 +31,7 @@ Future<HttpClientResponse> http(
 
     var uri = Uri.parse(url);
 
-    if (params != null && params.isNotEmpty) {
+    if (params.isNotEmpty) {
       params.removeWhere((key, value) => value == null);
       uri = Uri(
         scheme: uri.scheme,
@@ -46,11 +46,9 @@ Future<HttpClientResponse> http(
 
     request = await http.openUrl(method, uri);
 
-    if (headers != null && headers.isNotEmpty) {
+    if (headers.isNotEmpty) {
       headers.forEach((key, value) {
-        if (value != null) {
-          request.headers.add(key, value);
-        }
+        if (value != null) request.headers.add(key, value);
       });
     }
 

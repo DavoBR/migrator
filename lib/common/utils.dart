@@ -1,6 +1,8 @@
-T parseEnum<T>(Iterable<T> values, String value) {
-  return values.firstWhere((type) => type.toString().split(".").last == value,
-      orElse: () => null);
+T parseEnum<T>(Iterable<T> values, String value, {T orElse()?}) {
+  return values.firstWhere(
+    (type) => type.toString().split(".").last == value,
+    orElse: orElse,
+  );
 }
 
 class Failure {

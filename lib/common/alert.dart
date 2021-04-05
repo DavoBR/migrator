@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
 
-Future<String> alert(
+Future<void> alert(
   BuildContext context, {
-  Widget title,
-  Widget content,
+  Widget? title,
+  required Widget content,
   String textOk = 'Aceptar',
-}) {
-  return showDialog(
+}) async {
+  await showDialog(
     context: context,
     builder: (_) => AlertDialog(
       title: title,
       content: content,
       actions: <Widget>[
-        FlatButton(
+        TextButton(
           child: Text(textOk),
           onPressed: () => Navigator.pop(context, null),
         ),

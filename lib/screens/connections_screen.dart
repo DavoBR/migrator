@@ -69,72 +69,73 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
     return StatusBar(
       child: Observer(
         builder: (_) {
-          if (store.testFuture != null) {
-            return store.testFuture.when(
-              pending: () => Indicator(
-                Text('Probando conexión...'),
-                color: Colors.green,
-                size: 16.0,
+          return store.testFuture.when(
+            pending: () => Indicator(
+              Text('Probando conexión...'),
+              color: Colors.green,
+              size: 16.0,
+            ),
+            fulfilled: (ok) => ok
+                ? Indicator(
+                    Text('Conexión exitosa'),
+                    icon: Icons.check,
+                    color: Colors.green,
+                    size: 16.0,
+                  )
+                : SizedBox(),
+            rejected: (error) => Indicator(
+              Text('Error de conexión (click para ve detalle'),
+              icon: Icons.error,
+              color: Colors.red,
+              size: 16.0,
+            ).gestures(
+              onTap: () => alert(
+                context,
+                title: Text('Error de conexión'),
+                content: Text(error.toString()),
               ),
-              fulfilled: (_) => Indicator(
-                Text('Conexión exitosa'),
-                icon: Icons.check,
-                color: Colors.green,
-                size: 16.0,
-              ),
-              rejected: (error) => Indicator(
-                Text('Error de conexión (click para ve detalle'),
-                icon: Icons.error,
-                color: Colors.red,
-                size: 16.0,
-              ).gestures(
-                onTap: () => alert(
-                  context,
-                  title: Text('Error de conexión'),
-                  content: Text(error.toString()),
-                ),
-              ),
-            );
-          }
-          return SizedBox();
+            ),
+          );
         },
       ),
     );
   }
 
   Connection get _connection {
-    final fields = _formKey.currentState.fields;
+    final fields = _formKey.currentState!.fields;
     return Connection(
-        name: fields['name'].currentState.value,
-        host: fields['host'].currentState.value,
-        username: fields['username'].currentState.value,
-        password: fields['password'].currentState.value,
-        certificate: fields['certificate'].currentState.value);
+      name: fields['name']!.value,
+      host: fields['host']!.value,
+      username: fields['username']!.value,
+      password: fields['password']!.value,
+      certificate: fields['certificate']!.value,
+    );
   }
 
-  void _select(Connection connection) {
+  void _select(Connection? connection) {
     context.store<ConnectionsStore>().select(connection);
-    _formKey.currentState.reset();
-    _formKey.currentState.fields['name'].currentState
-        .didChange(connection?.name ?? '');
-    _formKey.currentState.fields['host'].currentState
-        .didChange(connection?.host ?? '');
-    _formKey.currentState.fields['username'].currentState
-        .didChange(connection?.username ?? '');
-    _formKey.currentState.fields['password'].currentState
-        .didChange(connection?.password ?? '');
-    _formKey.currentState.fields['certificate'].currentState
-        .didChange(connection?.certificate ?? null);
+
+    final formState = _formKey.currentState!;
+
+    formState.reset();
+
+    if (connection != null) {
+      formState.fields['name']!.didChange(connection.name);
+      formState.fields['host']!.didChange(connection.host);
+      formState.fields['username']!.didChange(connection.username);
+      formState.fields['password']!.didChange(connection.password);
+      formState.fields['certificate']!.didChange(connection.certificate);
+    }
   }
 
   void _save() {
-    if (!_formKey.currentState.saveAndValidate()) return;
+    if (!_formKey.currentState!.saveAndValidate()) return;
 
     context.store<ConnectionsStore>().save(_connection);
   }
 
   void _test() {
-    if (!_formKey.currentState.saveAndValidate()) return;
+    if (!_formKey.currentState!.saveAndValidate()) return;
 
     final store = context.store<ConnectionsStore>();
 
@@ -200,47 +201,49 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
         child: Column(
           children: [
             FormBuilderTextField(
-              attribute: "name",
+              name: "name",
               decoration: InputDecoration(
                 labelText: "Nombre",
                 prefixIcon: Icon(Icons.text_fields),
               ),
-              validators: [
-                FormBuilderValidators.max(20),
-                FormBuilderValidators.required(),
-              ],
+              validator: FormBuilderValidators.compose([
+                FormBuilderValidators.max(context, 20),
+                FormBuilderValidators.required(context),
+              ]),
             ),
             FormBuilderTextField(
-              attribute: "host",
+              name: "host",
               decoration: InputDecoration(
                 labelText: "Gateway Host",
                 prefixIcon: Icon(Icons.public),
               ),
-              validators: [FormBuilderValidators.required()],
+              validator: FormBuilderValidators.compose([
+                FormBuilderValidators.required(context),
+              ]),
             ),
             FormBuilderTextField(
-              attribute: 'username',
+              name: 'username',
               decoration: InputDecoration(
                 labelText: 'Usuario',
                 prefixIcon: Icon(Icons.person),
               ),
-              validators: [
-                FormBuilderValidators.max(20),
-              ],
+              validator: FormBuilderValidators.compose([
+                FormBuilderValidators.max(context, 20),
+              ]),
             ),
             FormBuilderTextField(
-              attribute: 'password',
+              name: 'password',
               obscureText: true,
               decoration: InputDecoration(
                 labelText: 'Contraseña',
                 prefixIcon: Icon(Icons.lock),
               ),
-              validators: [
-                FormBuilderValidators.max(100),
-              ],
+              validator: FormBuilderValidators.compose([
+                FormBuilderValidators.max(context, 100),
+              ]),
             ),
             FormBuilderFileField(
-              attribute: 'certificate',
+              name: 'certificate',
               decoration: InputDecoration(
                 labelText: 'Certificado',
                 prefixIcon: Icon(Icons.vpn_key),
@@ -264,12 +267,10 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                 );
 
                 if (password == null) {
-                  _formKey.currentState.fields['certificate'].currentState
-                      .didChange(null);
+                  _formKey.currentState!.fields['certificate']!.didChange(null);
                 } else {
-                  _formKey.currentState.fields['username'].currentState
-                      .didChange('');
-                  _formKey.currentState.fields['password'].currentState
+                  _formKey.currentState!.fields['username']!.didChange('');
+                  _formKey.currentState!.fields['password']!
                       .didChange(password);
                 }
               },

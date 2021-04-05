@@ -2,6 +2,7 @@ import 'package:xml/xml.dart';
 import 'package:migrator/common/common.dart';
 
 enum ItemType {
+  unknown,
   folder,
   service,
   policy,
@@ -18,10 +19,13 @@ class Item {
 
   final XmlElement element;
 
-  String get name => element.getElement('l7:Name')?.text;
-  String get rawType => element.getElement('l7:Type')?.text;
+  String get name => element.getElement('l7:Name')?.text ?? '';
 
-  ItemType get type {
-    return parseEnum(ItemType.values, rawType.toCamelCase());
-  }
+  String get rawType => element.getElement('l7:Type')?.text ?? '';
+
+  ItemType get type => parseEnum(
+        ItemType.values,
+        rawType.toCamelCase(),
+        orElse: () => ItemType.unknown,
+      );
 }
