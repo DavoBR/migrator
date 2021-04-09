@@ -14,6 +14,19 @@ final connectionTestProvider =
 final connectionListProvider =
     StateNotifierProvider((ref) => ConnectionListController(ref.read));
 
+final connectionListFamily =
+    Provider.family<AsyncValue<List<Connection>>, bool>((ref, isSource) {
+  final asyncList = ref.watch(connectionListProvider.state);
+
+  if (isSource) return asyncList;
+
+  final src = ref.watch(sourceConnectionProvider).state;
+
+  return asyncList.whenData(
+    (list) => src != null ? list.where((c) => c.id != src.id).toList() : [],
+  );
+});
+
 final sourceConnectionProvider = StateProvider<Connection?>((_) => null);
 
 final targetConnectionProvider = StateProvider<Connection?>((_) => null);

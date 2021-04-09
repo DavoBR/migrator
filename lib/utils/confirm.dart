@@ -4,8 +4,8 @@ Future<bool> confirm<T>(
   BuildContext context, {
   required Widget content,
   Widget title = const Text(''),
-  Widget textOK = const Text('No'),
-  Widget textCancel = const Text('Si'),
+  Widget textOK = const Text('Si'),
+  Widget textCancel = const Text('No'),
 }) async {
   final result = await showDialog<bool>(
     context: context,

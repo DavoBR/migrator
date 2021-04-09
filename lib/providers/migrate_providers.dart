@@ -62,3 +62,8 @@ final mappingResultFamily = Provider.family<ItemMapping?, String>((
 
   return founds.isNotEmpty ? founds.first : null;
 });
+
+enum MigrateResultType { none, test, live }
+
+final migrateResultTypeProvider =
+    StateProvider<MigrateResultType>((_) => MigrateResultType.none);

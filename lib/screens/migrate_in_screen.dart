@@ -12,53 +12,129 @@ import 'package:migrator/providers/providers.dart';
 class MigrateInScreen extends HookWidget {
   @override
   Widget build(BuildContext context) {
-    Future.microtask(() => _migrateIn(context, true));
-    return WillPopScope(
-      onWillPop: () async {
-        return true;
-      },
-      child: Scaffold(
-        backgroundColor: Theme.of(context).backgroundColor,
-        appBar: AppBar(
-          title: const Text('Despliegue de objetos (Migrate In)'),
-          actions: [
-            ActionButton(
-              icon: CupertinoIcons.lab_flask,
-              label: 'Probar',
-              onPressed: () => _migrateIn(context, true),
-            ),
-            SizedBox(width: 5.0),
-            ActionButton(
-              icon: CupertinoIcons.rocket,
-              label: 'Desplegar',
-              onPressed: () => _migrateIn(context, false),
-            ),
-            SizedBox(width: 5.0),
-            ActionButton(
-              icon: Icons.code,
-              label: 'Bundle',
-              onPressed: () async => showHighlight(
-                context,
-                title: Text('Bundle - MigrateIn'),
-                language: 'xml',
-                code: await context.read(migrateInProvider).buildBundleXml(),
-              ),
-            ),
-          ],
+    useEffect(() {
+      Future.microtask(() => _migrateIn(context, true));
+    }, []);
+    return Scaffold(
+      backgroundColor: Theme.of(context).backgroundColor,
+      appBar: _buildAppBar(),
+      body: _buildBody(),
+    );
+  }
+
+  AppBar _buildAppBar() {
+    final context = useContext();
+    return AppBar(
+      title: const Text('Despliegue - Migrate In'),
+      actions: [
+        ActionButton(
+          icon: CupertinoIcons.lab_flask,
+          label: 'Probar',
+          onPressed: () => _migrateIn(context, true),
         ),
-        body: MigrateScreenBody(
-          headersHook: (labels) => labels.add('Resultado'),
-          rowsHook: (cells, item) => cells.add(MappingResultCell(item)),
+        SizedBox(width: 5.0),
+        ActionButton(
+          icon: CupertinoIcons.rocket,
+          label: 'Desplegar',
+          onPressed: () => _migrateIn(context, false),
         ),
-      ),
+        SizedBox(width: 5.0),
+        ActionButton(
+          icon: Icons.code,
+          label: 'Bundle',
+          onPressed: () async => showHighlight(
+            context,
+            title: Text('Bundle - MigrateIn'),
+            language: 'xml',
+            code: await context.read(migrateInProvider).buildBundleXml(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBody() {
+    final context = useContext();
+    final migrateResult = useProvider(migrateInProvider.state);
+    final migrateResultType = useProvider(migrateResultTypeProvider);
+    final isTestResult = migrateResultType.state == MigrateResultType.test;
+
+    return Column(
+      children: [
+        SelectedConnectionsBar(),
+        Expanded(
+          child: migrateResult.when(
+            data: (_) => MigrateScreenBody(
+              headersHook: (labels) {
+                if (isTestResult) {
+                  labels.add('Resultado Prueba');
+                } else {
+                  labels.add('Resultado');
+                }
+              },
+              rowsHook: (cells, item) => cells.add(MappingResultCell(item)),
+            ),
+            loading: () => Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  isTestResult
+                      ? 'Prueba de migración de objetos en curso...'
+                      : 'Migración de objetos en curso...',
+                ),
+                SizedBox(height: 20.0),
+                LinearProgressIndicator(),
+              ],
+            ).padding(horizontal: 50.0).center(),
+            error: (error, st) => Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  isTestResult
+                      ? 'Error en la migración de prueba'
+                      : 'Error en la migración',
+                ),
+                SizedBox(height: 20.0),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    primary: Theme.of(context).primaryColor,
+                  ),
+                  onPressed: () => _migrateIn(
+                    context,
+                    isTestResult ? false : true,
+                  ),
+                  child: Text('Reintentar'),
+                ),
+                SizedBox(height: 20.0),
+                Text(error.toString()),
+                SizedBox(height: 5.0),
+                Text(st.toString()),
+              ],
+            ).padding(horizontal: 50.0).center(),
+          ),
+        ),
+      ],
     );
   }
 
   void _migrateIn(BuildContext context, bool test) async {
     String versionComment = '';
 
+    final targetConnection = context.read(targetConnectionProvider).state;
+    final migrateResultType = context.read(migrateResultTypeProvider);
+
     if (!test) {
-      final targetConnection = context.read(targetConnectionProvider).state;
+      if (migrateResultType != MigrateResultType.test) {
+        alert(
+          context,
+          title: Text('Volver hacer la prueba'),
+          content: Text(
+            'Antes de desplegar volver hacer la prueba y verificar los resultados.',
+          ),
+        );
+        return;
+      }
+
       final confirmed = await confirm(
         context,
         title: Text('Confirmar despliegue'),
@@ -75,7 +151,14 @@ class MigrateInScreen extends HookWidget {
       if (versionComment.isEmpty) return;
     }
 
-    context.read(migrateInProvider).migrateIn(true, versionComment);
+    await context.read(migrateInProvider).migrateIn(test, versionComment);
+
+    if (!test) {
+      alert(
+        context,
+        title: Text('Migración completada a la ambiente $targetConnection'),
+      );
+    }
   }
 }
 

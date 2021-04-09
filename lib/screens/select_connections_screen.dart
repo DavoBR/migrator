@@ -12,6 +12,31 @@ import 'connections_screen.dart';
 import 'select_items_screen.dart';
 
 class SelectConnectionsScreen extends HookWidget {
+  Future<void> _continue(BuildContext context) async {
+    final source = context.read(sourceConnectionProvider);
+    final target = context.read(targetConnectionProvider);
+
+    final ok = await confirm(
+      context,
+      title: Text('¿Continuar con esta selección?'),
+      content: Wrap(
+        direction: Axis.vertical,
+        spacing: 10.0,
+        children: [
+          Text('Origen: ${source.state}'),
+          Text('Destino: ${target.state}'),
+        ],
+      ),
+    );
+
+    if (!ok) {
+      source.state = null;
+      return;
+    }
+
+    push(context, (_) => SelectItemsScreen());
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -23,31 +48,10 @@ class SelectConnectionsScreen extends HookWidget {
 
   AppBar _buildAppBar() {
     final context = useContext();
-    final sourceConnectionState = useProvider(sourceConnectionProvider).state;
-    final targetConnectionState = useProvider(targetConnectionProvider).state;
 
     return AppBar(
       title: const Text('Selecionar Conexiones'),
       actions: [
-        ActionButton(
-          icon: Icons.arrow_forward_outlined,
-          label: 'Continuar',
-          onPressed: () {
-            if (sourceConnectionState == null ||
-                targetConnectionState == null) {
-              alert(
-                context,
-                title: Text('Falto algo...'),
-                content: Text(
-                  'Debes selecionar una conexión origen y otra destino para continuar',
-                ),
-              );
-              return;
-            }
-            push(context, (_) => SelectItemsScreen());
-          },
-        ),
-        const SizedBox(width: 5.0),
         ActionButton(
           icon: Icons.public_outlined,
           label: 'Conexiones',
@@ -59,31 +63,29 @@ class SelectConnectionsScreen extends HookWidget {
   }
 
   Widget _buildBody() {
-    final connectionListState = useProvider(connectionListProvider.state);
-    final connectionListCtrl = useProvider(connectionListProvider);
+    final context = useContext();
+    final asyncList = useProvider(connectionListProvider.state);
 
     useEffect(() {
-      Future.microtask(() => connectionListCtrl.fetch());
+      Future.microtask(() => context.read(connectionListProvider).fetch());
     }, []);
 
-    return connectionListState.when(
+    return asyncList.when(
       data: (connections) {
         if (connections.length == 0) {
-          return Text('No hay conexiones configuradas')
-              .textColor(Colors.white)
-              .center();
+          return _buildNeedConnectionFeedback('No hay conexiones configuradas');
         }
 
         if (connections.length == 1) {
-          return Text('Solo hay una conexión, registrar otra')
-              .textColor(Colors.white)
-              .center();
+          return _buildNeedConnectionFeedback(
+              'Solo hay una conexión, debes registrar otra');
         }
 
         return Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _buildPanel(true),
+            VerticalDivider(),
             _buildPanel(false),
           ],
         );
@@ -96,32 +98,69 @@ class SelectConnectionsScreen extends HookWidget {
     );
   }
 
-  Widget _buildPanel(bool isSource) {
-    return Column(
-      children: [
-        Text(isSource ? 'Origen' : 'Destino')
-            .fontWeight(FontWeight.bold)
-            .padding(top: 20.0),
-        _buildList(isSource),
-      ],
-    ).card(elevation: 8).expanded();
+  Widget _buildNeedConnectionFeedback(String message) {
+    final context = useContext();
+
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(message).fontSize(22.0).textColor(Colors.white),
+          SizedBox(height: 8.0),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              primary: Theme.of(context).primaryColor,
+              textStyle: TextStyle(fontSize: 18.0),
+            ),
+            child: Text('Crear conexión'),
+            onPressed: () => push(context, (_) => ConnectionsScreen()),
+          )
+        ],
+      ),
+    );
   }
 
-  Widget _buildList(bool isSource) {
+  Widget _buildPanel(bool isSource) {
+    return Expanded(
+      child: Container(
+        color: Colors.white,
+        child: Column(
+          children: [
+            _buildPanelTop(isSource),
+            _buildPanelList(isSource).expanded(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPanelTop(bool isSource) {
+    final context = useContext();
     final sourceConnection = useProvider(sourceConnectionProvider).state;
-    final connectionListState = useProvider(connectionListProvider.state);
+    final targetConnection = useProvider(targetConnectionProvider).state;
 
-    return connectionListState.maybeWhen(
-      data: (_connections) {
-        final connections = _connections
-            .where((connection) =>
-                isSource ? true : (connection.id != sourceConnection?.id))
-            .toList();
+    String message = '';
 
-        if (!isSource && sourceConnection == null) {
-          return Text('Selecionar la conexión origen').center().expanded();
-        }
+    if (isSource && sourceConnection == null) {
+      message = 'Selecionar ambiente origen';
+    }
 
+    if (!isSource && sourceConnection != null && targetConnection == null) {
+      message = 'Selecionar ambiente destino';
+    }
+
+    return Text(message)
+        .fontSize(18.0)
+        .textColor(Theme.of(context).primaryColor)
+        .fontWeight(FontWeight.w500)
+        .padding(vertical: 10.0);
+  }
+
+  Widget _buildPanelList(bool isSource) {
+    final asyncList = useProvider(connectionListFamily(isSource));
+
+    return asyncList.maybeWhen(
+      data: (connections) {
         return ListView.separated(
           itemCount: connections.length,
           shrinkWrap: true,
@@ -132,7 +171,7 @@ class SelectConnectionsScreen extends HookWidget {
               _buildTile(context, isSource, connections[index]),
         );
       },
-      orElse: () => Text('Invalid state'),
+      orElse: () => Text('!!Upps this should not happen.'),
     );
   }
 
@@ -143,7 +182,6 @@ class SelectConnectionsScreen extends HookWidget {
   ) {
     final sourceConnection = context.read(sourceConnectionProvider);
     final targetConnection = context.read(targetConnectionProvider);
-    final status = context.read(statusProvider);
     final current = isSource ? sourceConnection.state : targetConnection.state;
     final isSelected = current?.id == connection.id;
 
@@ -156,10 +194,10 @@ class SelectConnectionsScreen extends HookWidget {
         if (isSource) {
           sourceConnection.state = connection;
           targetConnection.state = null;
-          status.setStatus('Seleciona la conexión destino');
         } else {
           targetConnection.state = connection;
-          status.setStatus('Conexiones selecionadas, puedes continuar');
+
+          _continue(context);
         }
       },
     );

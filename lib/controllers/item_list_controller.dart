@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:migrator/utils/utils.dart';
@@ -6,12 +5,8 @@ import 'package:migrator/models/models.dart';
 import 'package:migrator/providers/providers.dart';
 import 'package:migrator/services/restman_service.dart';
 
-import 'status_controller.dart';
-
 class ItemListController extends StateNotifier<AsyncValue<List<ItemInFolder>>> {
   final Reader _read;
-
-  StatusController get _status => _read(statusProvider);
 
   RestmanService get _restman => _read(restmanServiceProvider);
 
@@ -29,10 +24,16 @@ class ItemListController extends StateNotifier<AsyncValue<List<ItemInFolder>>> {
 
   ItemListController(this._read) : super(AsyncValue.loading());
 
-  Future<void> fetchRootItems() async {
-    _status.setStatus('Descargando objetos...', progress: true);
+  void clear() {
+    state = AsyncValue.data([]);
+  }
 
+  Future<void> fetchRootItems() async {
     try {
+      state = AsyncValue.loading();
+
+      await Future.delayed(Duration(seconds: 10));
+
       final folders = await _restman
           .fetchItems(
             _connection,
@@ -40,44 +41,38 @@ class ItemListController extends StateNotifier<AsyncValue<List<ItemInFolder>>> {
             parentFolderId: '',
           )
           .then((l) => l.cast<ItemInFolder>());
-
-      state = AsyncValue.data(folders);
-
-      await fetchItems(folders.first.id);
-    } finally {
-      _status.reset();
+      await _fetchItems(folders, folders.first.id);
+    } on Exception catch (error, st) {
+      state = AsyncValue.error(error, st);
     }
   }
 
-  Future<void> fetchItems(String folderId) async {
-    state.whenData((items) async {
-      try {
-        _status.setStatus('Descargando objetos...', progress: true);
+  void fetchItems(String folderId) {
+    state.whenData((oldList) => _fetchItems(oldList, folderId));
+  }
 
-        final types = [ItemType.folder, ItemType.service, ItemType.policy];
-        final futures = types.map(
-          (type) => _restman
-              .fetchItems(
-                _connection,
-                type,
-                parentFolderId: folderId,
-              )
-              .then((l) => l.cast<ItemInFolder>()),
-        );
-        final folderItems = await Future.wait(futures);
+  Future<void> _fetchItems(List<ItemInFolder> oldList, String folderId) async {
+    final folderIsLoading = _read(folderIsLoadingFamily(folderId));
+    try {
+      folderIsLoading.state = true;
 
-        state = AsyncValue.data(
-          items..addAll(folderItems.expand((l) => l.sortBy((i) => i.name))),
-        );
+      final types = [ItemType.folder, ItemType.service, ItemType.policy];
+      final futures = types.map(
+        (type) => _restman
+            .fetchItems(
+              _connection,
+              type,
+              parentFolderId: folderId,
+            )
+            .then((l) => l.cast<ItemInFolder>()),
+      );
+      final folderItems = await Future.wait(futures);
 
-        _status.reset();
-      } on Exception catch (error, st) {
-        _status.setError(
-          'Error descargando los objetos',
-          error,
-          stackTrace: st,
-        );
-      }
-    });
+      state = AsyncValue.data(
+        oldList..addAll(folderItems.expand((l) => l.sortBy((i) => i.name))),
+      );
+    } finally {
+      folderIsLoading.state = false;
+    }
   }
 }

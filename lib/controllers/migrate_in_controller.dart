@@ -8,13 +8,9 @@ import 'package:migrator/models/models.dart';
 import 'package:migrator/providers/providers.dart';
 import 'package:migrator/services/services.dart';
 
-import 'status_controller.dart';
-
 class MigrateInController
     extends StateNotifier<AsyncValue<BundleMappingsItem>> {
   Reader _read;
-
-  StatusController get _status => _read(statusProvider);
 
   RestmanService get _restman => _read(restmanServiceProvider);
 
@@ -35,41 +31,24 @@ class MigrateInController
   Future<void> migrateIn(bool test, String versionComment) async {
     state = AsyncValue.loading();
 
-    _status.setStatus(
-      test ? 'Prueba en progreso...' : 'Migración en progreso...',
-      progress: true,
-    );
-
     final keyPassPhrase = _read(migratePassPhraseProvider).state;
     final bundleXml = await buildBundleXml();
+    final resultTypeCtrl = _read(migrateResultTypeProvider);
 
-    try {
-      final result = await _restman.migrateIn(
-        _connection,
-        bundleXml,
-        test: test,
-        versionComment: versionComment,
-        keyPassPhrase: keyPassPhrase,
-      );
+    resultTypeCtrl.state = MigrateResultType.none;
 
-      if (result == null) throw Exception("migrateIn result is null");
+    final result = await _restman.migrateIn(
+      _connection,
+      bundleXml,
+      test: test,
+      versionComment: versionComment,
+      keyPassPhrase: keyPassPhrase,
+    );
 
-      state = AsyncValue.data(result);
+    resultTypeCtrl.state =
+        test ? MigrateResultType.test : MigrateResultType.live;
 
-      _status.setStatus(
-        test
-            ? 'Prueba completada, proceder con el despliegue'
-            : 'Migración completada',
-        icon: Icons.check,
-      );
-    } on Exception catch (error, st) {
-      state = AsyncValue.error(error, st);
-      _status.setError(
-        test ? 'Error en la prueba' : 'Error durante la migración',
-        error,
-        stackTrace: st,
-      );
-    }
+    state = AsyncValue.data(result);
   }
 
   Future<String> buildBundleXml() async {

@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
 import 'package:tuple/tuple.dart';
 import 'package:uuid/uuid.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -9,12 +8,8 @@ import 'package:migrator/models/models.dart';
 import 'package:migrator/providers/providers.dart';
 import 'package:migrator/services/services.dart';
 
-import 'status_controller.dart';
-
 class MigrateOutController extends StateNotifier<AsyncValue<BundleItem>> {
   Reader _read;
-
-  StatusController get _status => _read(statusProvider);
 
   RestmanService get _restman => _read(restmanServiceProvider);
 
@@ -34,10 +29,8 @@ class MigrateOutController extends StateNotifier<AsyncValue<BundleItem>> {
 
   Future<void> migrateOut() async {
     state = AsyncValue.loading();
-    _status.setStatus(
-      'Descargando bundle de los objetos selecionados...',
-      progress: true,
-    );
+
+    await Future.delayed(Duration(seconds: 10));
 
     final selectedItems = _read(selectedItemsProvider);
     final serviceItems = selectedItems.where((i) => i.type == ItemType.service);
@@ -59,13 +52,8 @@ class MigrateOutController extends StateNotifier<AsyncValue<BundleItem>> {
       await _setCustomMappings(bundle);
 
       state = AsyncValue.data(bundle);
-      _status.setStatus(
-        'Descarga del bundle completada, proceder con la prueba del despliegue',
-        icon: Icons.check,
-      );
     } on Exception catch (error, st) {
       state = AsyncValue.error(error, st);
-      _status.setError('Error descargando el bundle ', error, stackTrace: st);
     }
   }
 

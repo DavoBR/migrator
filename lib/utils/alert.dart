@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 Future<void> alert(
   BuildContext context, {
   required Widget title,
-  required Widget content,
+  Widget? content,
   String textOk = 'Aceptar',
 }) async {
   await showDialog(

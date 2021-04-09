@@ -32,8 +32,6 @@ class RestmanService {
       );
     });
 
-    if (xml == null) return [];
-
     return ItemFactory.listFromXml(xml);
   }
 

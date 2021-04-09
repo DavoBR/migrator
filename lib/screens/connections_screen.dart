@@ -27,7 +27,6 @@ class ConnectionsScreen extends HookWidget {
 
   void _select(BuildContext context, Connection? connection) {
     context.read(selectedConnectionProvider).state = connection;
-    context.read(statusProvider).reset();
   }
 
   void _save(BuildContext context) async {
@@ -95,8 +94,9 @@ class ConnectionsScreen extends HookWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _buildList().card(elevation: 8).expanded(),
-        _buildForm().card(elevation: 8).expanded(),
+        Expanded(child: Container(color: Colors.white, child: _buildList())),
+        VerticalDivider(),
+        Expanded(child: Container(color: Colors.white, child: _buildForm())),
       ],
     );
   }

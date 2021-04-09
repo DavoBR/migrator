@@ -46,7 +46,7 @@ final folderItemsFamily = Provider.family<List<ItemInFolder>, String?>((
 });
 
 final selectedItemIdsProvider = StateNotifierProvider(
-  (ref) => SelectedItemsController(ref.read),
+  (_) => SelectedItemsController(),
 );
 
 final selectedItemsProvider = Provider<List<ItemInFolder>>((ref) {
@@ -55,3 +55,6 @@ final selectedItemsProvider = Provider<List<ItemInFolder>>((ref) {
 
   return items.where((item) => itemIds.contains(item.id)).toList();
 });
+
+final folderIsLoadingFamily =
+    StateProvider.family<bool, String>((_, __) => false);

@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:hooks_riverpod/all.dart';
-import 'package:migrator/providers/connection_providers.dart';
-import 'package:migrator/providers/migrate_providers.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:styled_widget/styled_widget.dart';
+import 'package:tuple/tuple.dart';
 
 import 'package:migrator/utils/utils.dart';
 import 'package:migrator/models/models.dart';
-import 'package:tuple/tuple.dart';
+import 'package:migrator/providers/providers.dart';
+import 'package:migrator/widgets/widgets.dart';
 
 class MigrateScreenBody extends HookWidget {
   MigrateScreenBody({
@@ -24,17 +24,13 @@ class MigrateScreenBody extends HookWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 8.0,
-      child: DefaultTabController(
-        length: 3,
-        child: Column(
-          children: [
-            _buildTabBar(),
-            _buildInfoBar(),
-            _buildTabsPanel(),
-          ],
-        ),
+    return DefaultTabController(
+      length: 3,
+      child: Column(
+        children: [
+          _buildTabBar(),
+          _buildTabsPanel(),
+        ],
       ),
     );
   }
@@ -43,31 +39,13 @@ class MigrateScreenBody extends HookWidget {
     final context = useContext();
     return TabBar(
       labelPadding: const EdgeInsets.all(10.0),
-      labelColor: Theme.of(context).backgroundColor,
+      labelColor: Theme.of(context).primaryColor,
+      labelStyle: TextStyle(fontWeight: FontWeight.bold),
       tabs: [
         Text('Servicios y Politicas'),
         Text('Propiedades'),
         Text('Dependencias'),
       ],
-    );
-  }
-
-  Widget _buildInfoBar() {
-    final sourceConnection = useProvider(sourceConnectionProvider).state;
-    final targetConnection = useProvider(targetConnectionProvider).state;
-    return Container(
-      padding: EdgeInsets.all(10.0),
-      color: Colors.white,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(sourceConnection.toString()),
-          const SizedBox(width: 5.0),
-          const Icon(Icons.arrow_forward, color: Colors.green),
-          const SizedBox(width: 5.0),
-          Text(targetConnection.toString()),
-        ],
-      ),
     );
   }
 

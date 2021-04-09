@@ -12,15 +12,22 @@ import 'package:migrator/providers/providers.dart';
 
 import 'migrate_out_screen.dart';
 
-//import 'migrate_out_screen.dart';
-
 class SelectItemsScreen extends HookWidget {
   final _treeCtrl = TreeController(allNodesExpanded: false);
 
   @override
   Widget build(BuildContext context) {
+    useEffect(() {
+      Future.microtask(
+          () async => await context.read(itemListProvider).fetchRootItems());
+    }, []);
+
     return WillPopScope(
       onWillPop: () async {
+        context.read(itemListProvider).clear();
+        context.read(selectedItemIdsProvider).clear();
+        context.read(sourceConnectionProvider).state = null;
+        context.read(targetConnectionProvider).state = null;
         return true;
       },
       child: Scaffold(
@@ -34,7 +41,7 @@ class SelectItemsScreen extends HookWidget {
   AppBar _buildAppBar() {
     final context = useContext();
     return AppBar(
-      title: const Text('Selecionar objectos'),
+      title: const Text('Selecionar objetos'),
       actions: [
         ActionButton(
           icon: Icons.download_outlined,
@@ -47,23 +54,56 @@ class SelectItemsScreen extends HookWidget {
 
   Widget _buildBody() {
     final context = useContext();
-    return SplitView(
-      viewMode: SplitViewMode.Horizontal,
-      initialWeight: 0.3,
-      gripColor: Theme.of(context).backgroundColor,
-      gripSize: 8.0,
-      view1: _buildTreeView().padding(all: 8.0),
-      view2: _buildRightPanel().padding(all: 8.0),
-    ).card(elevation: 8.0);
+    final itemList = useProvider(itemListProvider.state);
+
+    return Column(
+      children: [
+        SelectedConnectionsBar(),
+        Expanded(
+          child: itemList.when(
+            data: (_) => SplitView(
+              viewMode: SplitViewMode.Vertical,
+              initialWeight: 0.6,
+              gripColor: Theme.of(context).primaryColor,
+              gripSize: 3.0,
+              view1: _buildTreeView().padding(all: 8.0),
+              view2: _buildSelectedsPanel().padding(all: 8.0),
+            ),
+            loading: () => Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text('Descargando carpeta raiz...'),
+                SizedBox(height: 20.0),
+                LinearProgressIndicator(),
+              ],
+            ).padding(horizontal: 50.0).center(),
+            error: (error, st) => Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text('Error descargando la carpeta raiz'),
+                SizedBox(height: 20.0),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    primary: Theme.of(context).primaryColor,
+                  ),
+                  onPressed: () =>
+                      context.read(itemListProvider).fetchRootItems(),
+                  child: Text('Reintentar'),
+                ),
+                SizedBox(height: 20.0),
+                Text(error.toString()),
+                SizedBox(height: 5.0),
+                Text(st.toString()),
+              ],
+            ).padding(horizontal: 50.0).center(),
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _buildTreeView() {
-    final itemListCtrl = useProvider(itemListProvider);
     final rootFolderId = useProvider(rootFolderIdProvider);
-
-    useEffect(() {
-      Future.microtask(() async => await itemListCtrl.fetchRootItems());
-    }, []);
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -107,55 +147,14 @@ class SelectItemsScreen extends HookWidget {
         ),
         onDoubleTap: () async {
           if (item is FolderItem) {
-            await context.read(itemListProvider).fetchItems(item.id);
-
             _treeCtrl.expandNode(key);
+            context.read(itemListProvider).fetchItems(item.id);
           } else {
             context.read(selectedItemIdsProvider).select(item.id);
           }
         },
       ),
       children: item is FolderItem ? _buildTreeChildren(item.id) : [],
-    );
-  }
-
-  Widget _buildNodeIcon(ItemInFolder item) {
-    Color? color;
-    IconData icon;
-    double size = 18.0;
-
-    switch (item.type) {
-      case ItemType.folder:
-        icon = Icons.folder;
-        color = Colors.green;
-        break;
-      case ItemType.service:
-        final service = item as ServiceItem;
-        icon = Icons.insert_drive_file;
-        color = service.isEnabled ? Colors.blue : Colors.red;
-        break;
-      case ItemType.policy:
-        final policy = item as PolicyItem;
-        icon = Icons.insert_drive_file_outlined;
-        switch (policy.policyType) {
-          case PolicyType.internal:
-            color = Colors.orange;
-            break;
-          case PolicyType.serviceOperation:
-            color = Colors.deepOrange;
-            break;
-          default:
-            color = Colors.lightBlue;
-        }
-        break;
-      default:
-        icon = Icons.check_box_outline_blank;
-    }
-
-    return Icon(
-      icon,
-      color: color,
-      size: size,
     );
   }
 
@@ -176,7 +175,7 @@ class SelectItemsScreen extends HookWidget {
     }
 
     final content = Row(children: [
-      _buildNodeIcon(item),
+      NodeIcon(item),
       SizedBox(width: 5.0),
       Text(text, style: textStyle),
     ]);
@@ -191,7 +190,7 @@ class SelectItemsScreen extends HookWidget {
     );
   }
 
-  Widget _buildRightPanel() {
+  Widget _buildSelectedsPanel() {
     final context = useContext();
     final selectedItems = useProvider(selectedItemsProvider);
 
@@ -201,7 +200,7 @@ class SelectItemsScreen extends HookWidget {
       builder: (context, accepteds, rejecteds) {
         if (selectedItems.isEmpty)
           return const Text(
-            'Arrastra aquí los servicios o politicas a desplegar',
+            'Arrastra aquí los servicios o politicas a desplegar y luego hacer click en Descargar (Migrate out) para continuar',
           ).center();
 
         return _buildTable(context);
