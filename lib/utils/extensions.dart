@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:mobx/mobx.dart';
 import 'package:recase/recase.dart';
-import 'package:provider/provider.dart';
 
 extension AsyncSnapshotX<T> on AsyncSnapshot<T> {
   bool isWaiting() => this.connectionState == ConnectionState.waiting;
@@ -10,10 +8,10 @@ extension AsyncSnapshotX<T> on AsyncSnapshot<T> {
   bool isNone() => this.connectionState == ConnectionState.none;
 
   R when<R>({
-    required R waiting(),
-    required R data(T),
-    required R error(dynamic error),
-    R none()?,
+    required R Function() waiting,
+    required R Function(T?) data,
+    required R Function(dynamic error) error,
+    R Function()? none,
   }) {
     if (this.isDone()) {
       return this.hasError ? error(this.error) : data(this.data);
@@ -27,38 +25,10 @@ extension AsyncSnapshotX<T> on AsyncSnapshot<T> {
   }
 }
 
-extension BuildContextX on BuildContext {
-  T store<T extends Store>() {
-    return Provider.of<T>(this, listen: false);
-  }
-}
-
-extension ObservableFutureX<T> on ObservableFuture<T> {
-  bool isPending() => this.status == FutureStatus.pending;
-  bool isFulfilled() => this.status == FutureStatus.fulfilled;
-  bool isRejected() => this.status == FutureStatus.rejected;
-  bool isCompleted() => this.isFulfilled() || this.isRejected();
-
-  R when<R>({
-    required R pending(),
-    required R fulfilled(T),
-    required R rejected(dynamic error),
-  }) {
-    switch (this.status) {
-      case FutureStatus.pending:
-        return pending();
-      case FutureStatus.fulfilled:
-        return fulfilled(this.value);
-      case FutureStatus.rejected:
-        return rejected(this.error);
-    }
-  }
-}
-
 extension FutureX<T> on Future<T> {
   Future<R> when<R>({
-    required R done(T),
-    required R error(T),
+    required R Function(T) done,
+    required R Function(T) error,
   }) {
     return this.then((value) => done(value), onError: (err) => error(err));
   }
@@ -78,7 +48,7 @@ extension StringX on String {
 }
 
 extension MapX<K, V> on Map<K, V> {
-  V? get(K key, {V orElse()?}) {
+  V? get(K key, {V? Function()? orElse}) {
     if (key != null && this.containsKey(key)) {
       return this[key];
     } else if (orElse != null) {

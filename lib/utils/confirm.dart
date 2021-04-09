@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
-Future<bool> confirm(
+Future<bool> confirm<T>(
   BuildContext context, {
-  Widget? title,
   required Widget content,
-  Widget textOK = const Text('Si'),
-  Widget textCancel = const Text('No'),
+  Widget title = const Text(''),
+  Widget textOK = const Text('No'),
+  Widget textCancel = const Text('Si'),
 }) async {
   final result = await showDialog<bool>(
     context: context,
@@ -21,9 +21,9 @@ Future<bool> confirm(
               child: textOK, onPressed: () => Navigator.pop(context, true)),
         ],
       ),
-      onWillPop: () async {
+      onWillPop: () {
         Navigator.pop(context, false);
-        return false;
+        return Future.value(false);
       },
     ),
   );

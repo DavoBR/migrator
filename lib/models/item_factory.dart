@@ -1,6 +1,7 @@
-import 'package:migrator/models/cluster_property_item.dart';
 import 'package:xml/xml.dart';
-import 'package:migrator/common/common.dart';
+
+import 'package:migrator/models/cluster_property_item.dart';
+import 'package:migrator/utils/utils.dart';
 
 import 'item.dart';
 import 'folder_item.dart';

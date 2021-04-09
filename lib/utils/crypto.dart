@@ -5,26 +5,30 @@ final key = Key.fromUtf8(pwd);
 final iv = IV.fromLength(16);
 final encrypter = Encrypter(AES(key));
 
-String? encrypt(String plainText, {String orElse(Object error)?}) {
+String? encrypt(String plainText, {throwError: true}) {
   try {
     final encrypted = encrypter.encrypt(plainText, iv: iv);
 
     return encrypted.base64;
   } catch (err) {
-    if (orElse == null) throw err;
-
-    return orElse(err);
+    if (throwError) {
+      throw err;
+    }
   }
+
+  return null;
 }
 
-String decrypt(String encoded, {String orElse(Object error)?}) {
+String? decrypt(String encoded, {throwError: true}) {
   try {
     final decrypted = encrypter.decrypt64(encoded, iv: iv);
 
     return decrypted;
   } catch (err) {
-    if (orElse == null) throw err;
-
-    return orElse(err);
+    if (throwError) {
+      throw err;
+    }
   }
+
+  return null;
 }

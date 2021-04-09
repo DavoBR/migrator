@@ -1,5 +1,6 @@
-import 'package:migrator/common/common.dart';
 import 'package:xml/xml.dart';
+
+import 'package:migrator/utils/utils.dart';
 
 import 'item_in_folder.dart';
 

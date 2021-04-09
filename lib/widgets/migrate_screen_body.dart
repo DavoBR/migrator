@@ -1,60 +1,46 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_mobx/flutter_mobx.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:hooks_riverpod/all.dart';
+import 'package:migrator/providers/connection_providers.dart';
+import 'package:migrator/providers/migrate_providers.dart';
 import 'package:styled_widget/styled_widget.dart';
-import 'package:collection/collection.dart';
 
-import 'package:migrator/common/common.dart';
+import 'package:migrator/utils/utils.dart';
 import 'package:migrator/models/models.dart';
-import 'package:migrator/stores/stores.dart';
+import 'package:tuple/tuple.dart';
 
-class MigrateScreenBody extends StatefulWidget {
+class MigrateScreenBody extends HookWidget {
   MigrateScreenBody({
-    required this.statusBar,
     this.mappingActionEditable = false,
+    this.cwpEditable = false,
     this.headersHook,
     this.rowsHook,
-    this.cwpSuffixIconBuilder,
   });
 
-  final Widget statusBar;
   final Function(List<String> labels)? headersHook;
   final Function(List<Widget> cells, ItemWithId? item)? rowsHook;
   final bool mappingActionEditable;
-  final Widget Function(
-    ClusterPropertyItem cwp,
-    String value,
-    bool isOverflow,
-  )? cwpSuffixIconBuilder;
+  final bool cwpEditable;
 
-  @override
-  _MigrateScreenBodyState createState() => _MigrateScreenBodyState();
-}
-
-class _MigrateScreenBodyState extends State<MigrateScreenBody> {
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        _buildBodyContent(),
-        widget.statusBar,
-      ],
+    return Card(
+      elevation: 8.0,
+      child: DefaultTabController(
+        length: 3,
+        child: Column(
+          children: [
+            _buildTabBar(),
+            _buildInfoBar(),
+            _buildTabsPanel(),
+          ],
+        ),
+      ),
     );
   }
 
-  Widget _buildBodyContent() {
-    return DefaultTabController(
-      length: 3,
-      child: Column(
-        children: [
-          _buildTabBar(),
-          _buildInfoBar(),
-          _buildTabsPanel(),
-        ],
-      ),
-    ).card(elevation: 8.0).flexible(fit: FlexFit.tight);
-  }
-
   Widget _buildTabBar() {
+    final context = useContext();
     return TabBar(
       labelPadding: const EdgeInsets.all(10.0),
       labelColor: Theme.of(context).backgroundColor,
@@ -67,61 +53,51 @@ class _MigrateScreenBodyState extends State<MigrateScreenBody> {
   }
 
   Widget _buildInfoBar() {
-    final store = context.store<MigrateStore>();
+    final sourceConnection = useProvider(sourceConnectionProvider).state;
+    final targetConnection = useProvider(targetConnectionProvider).state;
     return Container(
       padding: EdgeInsets.all(10.0),
       color: Colors.white,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Observer(builder: (_) => Text(store.sourceConnection.toString())),
+          Text(sourceConnection.toString()),
           const SizedBox(width: 5.0),
           const Icon(Icons.arrow_forward, color: Colors.green),
           const SizedBox(width: 5.0),
-          Observer(builder: (_) => Text(store.targetConnection.toString())),
+          Text(targetConnection.toString()),
         ],
       ),
     );
   }
 
   Widget _buildTabsPanel() {
-    final store = context.store<MigrateStore>();
+    final selectedItemsMappings = useProvider(itemMappingsFamily(true));
+    final dependenciesMappings = useProvider(itemMappingsFamily(false));
     return TabBarView(
       children: [
-        Observer(
-          builder: (_) => _buildTable(
-            context,
-            mappings: store.mappingOfSelectedItems,
-          ),
+        _buildTable(selectedItemsMappings),
+        _buildTable(
+          dependenciesMappings,
+          only: ItemType.clusterProperty,
         ),
-        Observer(
-          builder: (_) => _buildTable(
-            context,
-            mappings: store.mappingOfDependencyItems,
-            only: ItemType.clusterProperty,
-          ),
-        ),
-        Observer(
-          builder: (_) => _buildTable(
-            context,
-            mappings: store.mappingOfDependencyItems,
-            ignore: ItemType.clusterProperty,
-          ),
+        _buildTable(
+          dependenciesMappings,
+          ignore: ItemType.clusterProperty,
         ),
       ],
     ).padding(horizontal: 10.0, vertical: 5.0).expanded();
   }
 
   Widget _buildTable(
-    BuildContext context, {
-    required List<ItemMapping> mappings,
+    List<ItemMapping> mappings, {
     ItemType? only,
     ItemType? ignore,
   }) {
     final isForCwp = only == ItemType.clusterProperty;
     final header = _buildTableHeader(isForCwp);
 
-    var mappings2 = mappings.where((m) => m.srcId != null);
+    var mappings2 = mappings.where((m) => m.srcId.isNotEmpty);
 
     if (only != null) {
       mappings2 = mappings2.where((m) => m.type == only);
@@ -131,7 +107,7 @@ class _MigrateScreenBodyState extends State<MigrateScreenBody> {
 
     final mappings3 = mappings2.toList();
     mappings3.sort((a, b) => a.rawType.compareTo(b.rawType));
-    final rows = mappings3.map((m) => _buildTableRow(context, m)).toList();
+    final rows = mappings3.map(_buildTableRow).toList();
 
     return SingleChildScrollView(
       child: Table(
@@ -149,51 +125,47 @@ class _MigrateScreenBodyState extends State<MigrateScreenBody> {
 
   TableRow _buildTableHeader(bool isForCwp) {
     final labels = ['Nombre', (isForCwp ? 'Valor' : 'Tipo'), 'Acción'];
-    if (widget.headersHook != null) {
-      widget.headersHook!(labels);
-    }
+    if (headersHook != null) headersHook!(labels);
     final headers = labels
         .map((text) => Text(text).fontSize(16.0).fontWeight(FontWeight.bold));
 
     return TableRow(children: [...headers]);
   }
 
-  TableRow _buildTableRow(BuildContext context, ItemMapping mapping) {
-    final store = context.store<MigrateStore>();
-    var item = store.bundle?.items
-        .firstWhereOrNull((item) => item.id == mapping.srcId);
+  TableRow _buildTableRow(ItemMapping mapping) {
+    final asyncItem =
+        useProvider(migrateOutItemFamily(Tuple2(mapping.srcId, mapping.type)));
+    final context = useContext();
 
-    if (item == null && mapping.type == ItemType.folder) {
-      item = store.folders
-          .firstWhereOrNull((folder) => folder.id == mapping.srcId);
-    }
-
-    List<Widget> cells;
-
-    if (item == null) {
-      print(
-        'Item is not present in the bundle [id: ${mapping.srcId} type: ${mapping.rawType}]',
-      );
-
-      cells = [Text('---'), Text('---'), Text('---')];
-    } else {
-      cells = [
+    final cells = asyncItem.when(
+      data: (item) => [
         _buildItemNameCell(item),
-        item is ClusterPropertyItem
-            ? _buildClusterPropertyCell(item)
+        mapping.type == ItemType.clusterProperty
+            ? ClusterPropertyCell(item as ClusterPropertyItem, cwpEditable)
             : _buildItemTypeCell(mapping),
-        _buildActionMappingCell(item)
-      ];
-    }
+        _buildActionMappingCell(context, item)
+      ],
+      loading: () => [
+        Text('...'),
+        Text('...'),
+        Text('...'),
+      ],
+      error: (error, st) {
+        print(error);
+        return [
+          Text('<Error>'),
+          Text('<Error>'),
+          Text('<Error>'),
+        ];
+      },
+    );
 
-    if (widget.rowsHook != null) {
-      widget.rowsHook!(cells, item);
-    }
+    if (rowsHook != null) rowsHook!(cells, asyncItem.data?.value);
 
     return TableRow(children: [...cells]);
   }
 
-  Widget _buildItemNameCell(ItemWithId item) {
+  Widget _buildItemNameCell(ItemWithId? item) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [_buildItemNameText(item), _buildItemIdText(item)],
@@ -204,17 +176,19 @@ class _MigrateScreenBodyState extends State<MigrateScreenBody> {
     return Text(mapping.rawType);
   }
 
-  Widget _buildItemNameText(Item item) {
-    var name = item.name;
+  Widget _buildItemNameText(Item? item) {
+    var name = item?.name ?? 'Unknown';
 
-    if (item is ServiceItem) name += ' [${item.urlPattern}]';
+    if (item is ServiceItem) {
+      name += ' [${item.urlPattern}]';
+    }
 
     return Text(name);
   }
 
-  Widget _buildItemIdText(ItemWithId item) {
+  Widget _buildItemIdText(ItemWithId? item) {
     return Text(
-      'ID: ${item.id}',
+      'ID: ${item?.id ?? ''}',
       style: TextStyle(
         fontSize: 10.0,
         fontStyle: FontStyle.italic,
@@ -223,42 +197,18 @@ class _MigrateScreenBodyState extends State<MigrateScreenBody> {
     );
   }
 
-  Widget _buildClusterPropertyCell(ClusterPropertyItem cwp) {
-    final store = context.store<MigrateStore>();
-    return Observer(builder: (_) {
-      final value = store.clusterProperties.get(
-        cwp.id,
-        orElse: () => cwp.value,
-      )!;
-      final maxLength = 45;
-      final isOverflow = value.length > maxLength;
-      return Row(
-        children: [
-          Text(isOverflow ? value.substring(0, maxLength) + '...' : value),
-          SizedBox(width: 5.0),
-          widget.cwpSuffixIconBuilder != null
-              ? widget.cwpSuffixIconBuilder!(cwp, value, isOverflow)
-              : SizedBox()
-        ],
-      );
-    });
-  }
-
-  Widget _buildActionMappingCell(ItemWithId? item) {
+  Widget _buildActionMappingCell(BuildContext context, ItemWithId? item) {
     if (item == null) return Text('Unknown');
 
-    final store = context.store<MigrateStore>();
-    final customMapping = store.mappings.get(
-      item.id,
-      orElse: () => MappingConfig(action: MappingAction.unknown),
-    )!;
-    final mappingAction = customMapping.action;
-    if (widget.mappingActionEditable) {
+    final mappingActionCtrl = context.read(mappingActionFamily(item.id));
+    if (mappingActionEditable) {
       return DropdownButton<MappingAction>(
-        value: mappingAction,
+        value: mappingActionCtrl.state,
         underline: SizedBox(),
         onChanged: (action) {
-          if (action != null) store.setMappingAction(item, action);
+          if (action != null) {
+            mappingActionCtrl.state = action;
+          }
         },
         items: MappingAction.values
             .map(
@@ -270,7 +220,61 @@ class _MigrateScreenBodyState extends State<MigrateScreenBody> {
             .toList(),
       ).sizedBox(height: 30.0);
     } else {
-      return Text(mappingAction.toString().split('.')[1].toPascalCase());
+      return Text(
+        mappingActionCtrl.state.toString().split('.')[1].toPascalCase(),
+      );
     }
+  }
+}
+
+class ClusterPropertyCell extends HookWidget {
+  final ClusterPropertyItem? cwp;
+  final bool editable;
+
+  ClusterPropertyCell(this.cwp, this.editable);
+
+  @override
+  Widget build(BuildContext context) {
+    if (cwp == null) return SizedBox();
+
+    final cwpValueCtrl = useProvider(cwpValueFamily(cwp!.id));
+    final value = cwpValueCtrl.state ?? cwp!.value;
+    final maxLength = 45;
+    final isOverflow = value.length > maxLength;
+
+    return Row(
+      children: [
+        Text(isOverflow ? value.substring(0, maxLength) + '...' : value),
+        SizedBox(width: 5.0),
+        IconButton(
+          icon: Icon(editable ? Icons.edit : Icons.loupe),
+          iconSize: 14.0,
+          color: Colors.green,
+          tooltip: editable ? 'Editar valor antes de desplegar' : '',
+          padding: EdgeInsets.zero,
+          constraints: BoxConstraints(),
+          onPressed: () async {
+            if (editable) {
+              final newValue = await prompt(
+                context,
+                title: Text(cwp!.name),
+                initialValue: value,
+                maxLines: 6,
+              );
+
+              if (newValue != null) {
+                cwpValueCtrl.state = newValue;
+              }
+            } else {
+              await alert(
+                context,
+                title: Text(cwp!.name),
+                content: Text(value),
+              );
+            }
+          },
+        ),
+      ],
+    );
   }
 }

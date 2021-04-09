@@ -1,32 +1,20 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_mobx/flutter_mobx.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:styled_widget/styled_widget.dart';
-import 'package:collection/collection.dart';
 
-import 'package:migrator/common/common.dart';
+import 'package:migrator/utils/utils.dart';
 import 'package:migrator/widgets/widgets.dart';
 import 'package:migrator/models/models.dart';
-import 'package:migrator/stores/stores.dart';
+import 'package:migrator/providers/providers.dart';
 
-class MigrateInScreen extends StatefulWidget {
-  @override
-  _MigrateInScreenState createState() => _MigrateInScreenState();
-}
-
-class _MigrateInScreenState extends State<MigrateInScreen> {
-  @override
-  void initState() {
-    super.initState();
-    Future.delayed(Duration(seconds: 1)).then((_) => _migrateIn(true));
-  }
-
+class MigrateInScreen extends HookWidget {
   @override
   Widget build(BuildContext context) {
-    final store = context.store<MigrateStore>();
+    Future.microtask(() => _migrateIn(context, true));
     return WillPopScope(
       onWillPop: () async {
-        store.clearMigrateIn();
         return true;
       },
       child: Scaffold(
@@ -37,109 +25,44 @@ class _MigrateInScreenState extends State<MigrateInScreen> {
             ActionButton(
               icon: CupertinoIcons.lab_flask,
               label: 'Probar',
-              onPressed: () => _migrateIn(true),
+              onPressed: () => _migrateIn(context, true),
             ),
+            SizedBox(width: 5.0),
             ActionButton(
               icon: CupertinoIcons.rocket,
               label: 'Desplegar',
-              onPressed: () => _migrateIn(false),
+              onPressed: () => _migrateIn(context, false),
             ),
+            SizedBox(width: 5.0),
             ActionButton(
               icon: Icons.code,
               label: 'Bundle',
-              onPressed: () => showHighlight(
+              onPressed: () async => showHighlight(
                 context,
                 title: Text('Bundle - MigrateIn'),
                 language: 'xml',
-                code: store.buildMigrateInBundle(),
+                code: await context.read(migrateInProvider).buildBundleXml(),
               ),
             ),
           ],
         ),
         body: MigrateScreenBody(
-          statusBar: _buildStatusBar(),
-          cwpSuffixIconBuilder: _buildCWPSuffixIcon,
           headersHook: (labels) => labels.add('Resultado'),
-          rowsHook: (cells, item) => cells.add(
-            item != null ? _buildMappingResultCell(item) : Text('---'),
-          ),
+          rowsHook: (cells, item) => cells.add(MappingResultCell(item)),
         ),
       ),
     );
   }
 
-  Widget _buildStatusBar() {
-    final store = context.store<MigrateStore>();
-    return StatusBar(
-      child: Observer(builder: (_) {
-        if (store.tested) {
-          return store.deployResultFuture.when(
-            pending: () => Indicator(
-              Text('Migración en progreso...'),
-              color: Colors.green,
-              size: 16.0,
-            ),
-            fulfilled: (result) => Indicator(
-              Text(result != null ? 'Migración completada' : 'Espere...'),
-              color: Colors.green,
-              size: 16.0,
-              icon: result != null ? Icons.check : null,
-            ),
-            rejected: (error) => Indicator(
-              Text('Error en la migración (hacer click para ver error)'),
-              color: Colors.red,
-              size: 16.0,
-              icon: Icons.error,
-            ).gestures(
-              onTap: () => alert(
-                context,
-                title: Text('Error durante la migración'),
-                content: Text(error.toString()),
-              ),
-            ),
-          );
-        }
-
-        return store.testResultFuture.when(
-          pending: () => Indicator(
-            Text('Prueba en progreso...'),
-            color: Colors.green,
-            size: 16.0,
-          ),
-          fulfilled: (result) => Indicator(
-            Text(result != null
-                ? 'Prueba completada, proceder con el despliegue'
-                : 'Espere...'),
-            color: Colors.green,
-            size: 16.0,
-            icon: result != null ? Icons.check : null,
-          ),
-          rejected: (error) => Indicator(
-            Text('Error en la prueba (hacer click para ver error)'),
-            color: Colors.red,
-            size: 16.0,
-            icon: Icons.error,
-          ).gestures(
-            onTap: () => alert(
-              context,
-              title: Text('Error de la prueba'),
-              content: Text(error.toString()),
-            ),
-          ),
-        );
-      }),
-    );
-  }
-
-  void _migrateIn(bool test) async {
-    final store = context.store<MigrateStore>();
-    String? versionComment;
+  void _migrateIn(BuildContext context, bool test) async {
+    String versionComment = '';
 
     if (!test) {
+      final targetConnection = context.read(targetConnectionProvider).state;
       final confirmed = await confirm(
         context,
         title: Text('Confirmar despliegue'),
-        content: Text('Ambiente: ${store.targetConnection}'),
+        content: Text('Ambiente: $targetConnection'),
       );
 
       if (!confirmed) return;
@@ -149,46 +72,28 @@ class _MigrateInScreenState extends State<MigrateInScreen> {
         title: Text('Comentario de la versión'),
       );
 
-      if (versionComment == null || versionComment.isEmpty) {
-        return;
-      }
-    } else {
-      versionComment = '';
+      if (versionComment.isEmpty) return;
     }
 
-    store.migrateIn(test, versionComment);
+    context.read(migrateInProvider).migrateIn(true, versionComment);
   }
+}
 
-  Widget _buildCWPSuffixIcon(
-    ClusterPropertyItem cwp,
-    String value,
-    bool isOverflow,
-  ) {
-    if (!isOverflow) {
-      return SizedBox();
-    }
+final warningActions = [
+  MappingActionTaken.deleted,
+  MappingActionTaken.updatedExisting,
+];
 
-    return IconButton(
-      icon: const Icon(Icons.loupe),
-      iconSize: 14.0,
-      color: Colors.green,
-      padding: EdgeInsets.zero,
-      constraints: BoxConstraints(),
-      onPressed: () async {
-        await alert(
-          context,
-          title: Text(cwp.name),
-          content: Text(value),
-        );
-      },
-    );
-  }
+class MappingResultCell extends HookWidget {
+  final ItemWithId? item;
 
-  Widget _buildMappingResultCell(ItemWithId item) {
-    final store = context.store<MigrateStore>();
-    final migrateInResult = store.deployResult ?? store.testResult;
-    final mapping = migrateInResult?.mappings
-        .firstWhereOrNull((mapping) => mapping.srcId == item.id);
+  MappingResultCell(this.item);
+
+  @override
+  Widget build(BuildContext context) {
+    if (item == null) return Text('item null');
+
+    final mapping = useProvider(mappingResultFamily(item!.id));
 
     String? errorMessage;
     String status = 'No Result';
@@ -199,7 +104,7 @@ class _MigrateInScreenState extends State<MigrateInScreen> {
       if (mapping.rawActionTaken.isNotEmpty) {
         status = mapping.rawActionTaken;
 
-        if (store.warningActions.contains(mapping.actionTaken)) {
+        if (warningActions.contains(mapping.actionTaken)) {
           iconData = Icons.warning_rounded;
           iconColor = Colors.amber;
         } else {
@@ -231,7 +136,7 @@ class _MigrateInScreenState extends State<MigrateInScreen> {
         alert(
           context,
           title: Text(
-            '[${item.rawType}] ${item.name}: ${mapping?.rawErrorType}',
+            '[${mapping!.rawType}] ${(item?.name ?? mapping.srcId)}: ${mapping.rawErrorType}',
           ),
           content: Text(errorMessage),
         );

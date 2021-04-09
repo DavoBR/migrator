@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 Future<void> alert(
   BuildContext context, {
-  Widget? title,
+  required Widget title,
   required Widget content,
   String textOk = 'Aceptar',
 }) async {

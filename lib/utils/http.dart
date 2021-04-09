@@ -2,19 +2,17 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'utils.dart';
-
 Future<HttpClientResponse> http(
   String method,
   String url, {
-  Map<String, dynamic> params = const {},
+  Map<String, dynamic?> params = const {},
   Map<String, String?> headers = const {},
   String? body,
   String? contentType,
   String? username,
   String? password,
   Uint8List? certificate,
-  requestHook(HttpClientRequest req)?,
+  Function(HttpClientRequest)? requestHook,
 }) async {
   String? basicAuth;
   SecurityContext? securityCtx;
@@ -48,7 +46,9 @@ Future<HttpClientResponse> http(
 
     if (headers.isNotEmpty) {
       headers.forEach((key, value) {
-        if (value != null) request.headers.add(key, value);
+        if (value != null) {
+          request.headers.add(key, value);
+        }
       });
     }
 
@@ -72,6 +72,6 @@ Future<HttpClientResponse> http(
 
     return response;
   } on SocketException {
-    throw Failure('No Internet connection 😑');
+    throw Exception('Revisa la conexión a internet 😑');
   }
 }

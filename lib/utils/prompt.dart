@@ -12,7 +12,7 @@ Future<T?> prompt<T>(
   bool obscureText: false,
   TextInputType keyboardType = TextInputType.text,
   List<DropdownMenuItem<T>> items = const [],
-}) {
+}) async {
   T? value = initialValue;
   Widget content;
 
@@ -37,7 +37,7 @@ Future<T?> prompt<T>(
     );
   }
 
-  return showDialog(
+  var result = await showDialog<T>(
     context: context,
     builder: (_) => WillPopScope(
       child: AlertDialog(
@@ -45,15 +45,21 @@ Future<T?> prompt<T>(
         content: content,
         actions: <Widget>[
           TextButton(
-              child: textCancel, onPressed: () => Navigator.pop(context, null)),
+            child: textCancel,
+            onPressed: () => Navigator.pop(context, null),
+          ),
           TextButton(
-              child: textOK, onPressed: () => Navigator.pop(context, value)),
+            child: textOK,
+            onPressed: () => Navigator.pop(context, value),
+          ),
         ],
       ),
-      onWillPop: () async {
+      onWillPop: () {
         Navigator.pop(context, null);
-        return false;
+        return Future.value(false);
       },
     ),
   );
+
+  return result;
 }
