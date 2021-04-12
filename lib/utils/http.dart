@@ -19,9 +19,9 @@ Future<HttpClientResponse> http(
   HttpClientRequest request;
 
   try {
-    if (certificate == null) {
+    if (username != null && password != null) {
       basicAuth = 'Basic ' + base64Encode(utf8.encode('$username:$password'));
-    } else {
+    } else if (certificate != null && password != null) {
       securityCtx = SecurityContext(withTrustedRoots: true);
       securityCtx.useCertificateChainBytes(certificate, password: password);
       securityCtx.usePrivateKeyBytes(certificate, password: password);

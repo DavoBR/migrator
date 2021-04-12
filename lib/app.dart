@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'screens/select_connections_screen.dart';
+import 'screens/check_version_screen.dart';
 
 class App extends StatelessWidget {
   @override
@@ -15,13 +15,7 @@ class App extends StatelessWidget {
         dividerColor: Color.fromRGBO(58, 66, 86, 1.0),
         backgroundColor: Colors.white,
       ),
-      home: SafeArea(child: SelectConnectionsScreen()),
-      builder: (context, widget) {
-        return Flexible(
-          fit: FlexFit.tight,
-          child: widget ?? Text("What the heck????"),
-        );
-      },
+      home: SafeArea(child: CheckVersionScreen()),
     );
   }
 }

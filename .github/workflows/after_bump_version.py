@@ -50,3 +50,13 @@ file_data = re.sub(r'!define VERSIONMINOR \d+', f'!define VERSIONMINOR {minor}',
 file_data = re.sub(r'!define VERSIONBUILD \d+', f'!define VERSIONBUILD {patch}', file_data)
 
 file_write(file_path, file_data)
+
+
+file_path = './lib/utils/constants.dart'
+
+print(f'::debug Define version in {file_path}')
+
+file_data = file_read(file_path)
+file_data = re.sub('APP_VERSION "debug"', f'APP_VERSION "v{longVersion}"', file_data)
+
+file_write(file_path, file_data)
