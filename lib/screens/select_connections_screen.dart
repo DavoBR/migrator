@@ -39,6 +39,12 @@ class SelectConnectionsScreen extends HookWidget {
 
   @override
   Widget build(BuildContext context) {
+    useEffect(() {
+      Future.microtask(() {
+        context.read(sourceConnectionProvider).state = null;
+        context.read(targetConnectionProvider).state = null;
+      });
+    }, []);
     return Scaffold(
       backgroundColor: Theme.of(context).backgroundColor,
       appBar: _buildAppBar(),
@@ -78,7 +84,8 @@ class SelectConnectionsScreen extends HookWidget {
 
         if (connections.length == 1) {
           return _buildNeedConnectionFeedback(
-              'Solo hay una conexión, debes registrar otra');
+            'Solo hay una conexión, debes registrar otra',
+          );
         }
 
         return Row(
@@ -160,17 +167,18 @@ class SelectConnectionsScreen extends HookWidget {
     final asyncList = useProvider(connectionListFamily(isSource));
 
     return asyncList.maybeWhen(
-      data: (connections) {
-        return ListView.separated(
-          itemCount: connections.length,
-          shrinkWrap: true,
-          separatorBuilder: (context, __) => Divider(
-            color: Theme.of(context).primaryColor,
-          ),
-          itemBuilder: (context, index) =>
-              _buildTile(context, isSource, connections[index]),
-        );
-      },
+      data: (connections) => ListView.separated(
+        itemCount: connections.length,
+        shrinkWrap: true,
+        separatorBuilder: (context, __) => Divider(
+          color: Theme.of(context).primaryColor,
+        ),
+        itemBuilder: (context, index) => _buildTile(
+          context,
+          isSource,
+          connections[index],
+        ),
+      ),
       orElse: () => Text('!!Upps this should not happen.'),
     );
   }
@@ -196,7 +204,6 @@ class SelectConnectionsScreen extends HookWidget {
           targetConnection.state = null;
         } else {
           targetConnection.state = connection;
-
           _continue(context);
         }
       },

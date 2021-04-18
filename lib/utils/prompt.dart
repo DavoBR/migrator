@@ -32,7 +32,7 @@ Future<T?> prompt<T>(
       minLines: minLines,
       maxLines: maxLines,
       autofocus: true,
-      initialValue: initialValue as String,
+      initialValue: initialValue?.toString(),
       onChanged: (text) => value = text as T,
     );
   }

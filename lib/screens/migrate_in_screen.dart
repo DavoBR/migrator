@@ -56,8 +56,9 @@ class MigrateInScreen extends HookWidget {
   Widget _buildBody() {
     final context = useContext();
     final migrateResult = useProvider(migrateInProvider.state);
-    final migrateResultType = useProvider(migrateResultTypeProvider);
-    final isTestResult = migrateResultType.state == MigrateResultType.test;
+    final migrateResultType = useProvider(migrateResultTypeProvider).state;
+    final testLoading = migrateResultType == MigrateResultType.none;
+    final isTestResult = migrateResultType == MigrateResultType.test;
 
     return Column(
       children: [
@@ -78,7 +79,7 @@ class MigrateInScreen extends HookWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  isTestResult
+                  testLoading
                       ? 'Prueba de migración de objetos en curso...'
                       : 'Migración de objetos en curso...',
                 ),
@@ -90,7 +91,7 @@ class MigrateInScreen extends HookWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  isTestResult
+                  testLoading
                       ? 'Error en la migración de prueba'
                       : 'Error en la migración',
                 ),
@@ -121,7 +122,7 @@ class MigrateInScreen extends HookWidget {
     String versionComment = '';
 
     final targetConnection = context.read(targetConnectionProvider).state;
-    final migrateResultType = context.read(migrateResultTypeProvider);
+    final migrateResultType = context.read(migrateResultTypeProvider).state;
 
     if (!test) {
       if (migrateResultType != MigrateResultType.test) {

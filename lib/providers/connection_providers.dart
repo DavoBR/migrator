@@ -9,7 +9,7 @@ final selectedConnectionProvider = StateProvider<Connection?>((_) => null);
 final connectionRepositoryProvider = Provider((ref) => ConnectionRepository());
 
 final connectionTestProvider =
-    Provider((ref) => ConnectionTestController(ref.read));
+    StateNotifierProvider((ref) => ConnectionTestController(ref.read));
 
 final connectionListProvider =
     StateNotifierProvider((ref) => ConnectionListController(ref.read));

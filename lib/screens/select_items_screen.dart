@@ -106,14 +106,11 @@ class SelectItemsScreen extends HookWidget {
     final rootFolderId = useProvider(rootFolderIdProvider);
 
     return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.vertical,
-        child: TreeView(
-          treeController: _treeCtrl,
-          indent: 15.0,
-          nodes: _buildTreeChildren(rootFolderId),
-        ),
+      scrollDirection: Axis.vertical,
+      child: TreeView(
+        treeController: _treeCtrl,
+        indent: 15.0,
+        nodes: _buildTreeChildren(rootFolderId),
       ),
     );
   }
@@ -194,17 +191,21 @@ class SelectItemsScreen extends HookWidget {
     final context = useContext();
     final selectedItems = useProvider(selectedItemsProvider);
 
-    return DragTarget<ItemInFolder>(
-      onWillAccept: (item) => item is ServiceItem || item is PolicyItem,
-      onAccept: (item) => context.read(selectedItemIdsProvider).select(item.id),
-      builder: (context, accepteds, rejecteds) {
-        if (selectedItems.isEmpty)
-          return const Text(
-            'Arrastra aquí los servicios o politicas a desplegar y luego hacer click en Descargar (Migrate out) para continuar',
-          ).center();
+    return SingleChildScrollView(
+      scrollDirection: Axis.vertical,
+      child: DragTarget<ItemInFolder>(
+        onWillAccept: (item) => item is ServiceItem || item is PolicyItem,
+        onAccept: (item) =>
+            context.read(selectedItemIdsProvider).select(item.id),
+        builder: (context, accepteds, rejecteds) {
+          if (selectedItems.isEmpty)
+            return const Text(
+              'Arrastra aquí los servicios o politicas a desplegar y luego hacer click en Descargar (Migrate out) para continuar',
+            ).center();
 
-        return _buildTable(context);
-      },
+          return _buildTable(context);
+        },
+      ),
     );
   }
 
@@ -216,7 +217,6 @@ class SelectItemsScreen extends HookWidget {
         0: FixedColumnWidth(50.0),
         1: FlexColumnWidth(),
         2: FixedColumnWidth(100.0),
-        3: FixedColumnWidth(250.0),
       },
       defaultVerticalAlignment: TableCellVerticalAlignment.middle,
       children: [
@@ -233,10 +233,9 @@ class SelectItemsScreen extends HookWidget {
   TableRow _buildTableHeader() {
     return TableRow(
       children: [
-        Container(),
+        SizedBox.shrink(),
         _buildHeaderText('Nombre'),
         _buildHeaderText('Tipo'),
-        _buildHeaderText('Id'),
       ],
     );
   }
@@ -257,9 +256,17 @@ class SelectItemsScreen extends HookWidget {
           iconSize: 16.0,
           onPressed: () => selectedItemIdsCtrl.unselect(item.id),
         ),
-        Text(name),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(name),
+            Text('ID: ${item.id}')
+                .italic()
+                .textColor(Colors.grey)
+                .fontSize(10.0),
+          ],
+        ),
         Text(item.rawType),
-        Text(item.id),
       ],
     );
   }

@@ -197,10 +197,18 @@ class RestmanService {
     if (response.statusCode == 500) {
       var errorMessage = response.reasonPhrase;
       try {
-        errorMessage = XmlDocument.parse(result)
-            .findAllElements('l7:policyResult')
-            .first
-            .text;
+        final policyResult =
+            XmlDocument.parse(result).findAllElements('l7:policyResult').first;
+
+        final status = policyResult.getAttribute('status');
+
+        if (status != null && status.isNotEmpty) {
+          errorMessage += ' / $status';
+        }
+
+        if (policyResult.text.isNotEmpty) {
+          errorMessage += ' / ${policyResult.text}';
+        }
       } catch (_) {}
 
       throw Exception(errorMessage);

@@ -26,6 +26,7 @@ class ConnectionsScreen extends HookWidget {
   }
 
   void _select(BuildContext context, Connection? connection) {
+    context.read(connectionTestProvider).clear();
     context.read(selectedConnectionProvider).state = connection;
   }
 
@@ -33,32 +34,38 @@ class ConnectionsScreen extends HookWidget {
     if (!_formKey.currentState!.saveAndValidate()) return;
 
     final listCtrl = context.read(connectionListProvider);
+    final testCtrl = context.read(connectionTestProvider);
     final selected = context.read(selectedConnectionProvider).state;
     final connection = _getConnectionFromForm();
 
+    testCtrl.clear();
+
     if (selected == null) {
-      await listCtrl.add(_getConnectionFromForm());
+      await listCtrl.add(connection);
     } else {
       connection.id = selected.id;
-      await listCtrl.update(_getConnectionFromForm());
+      await listCtrl.update(connection);
     }
   }
 
   void _test(BuildContext context) async {
     if (!_formKey.currentState!.saveAndValidate()) return;
 
-    final testCtrl = context.read(connectionTestProvider);
-    final connection = _getConnectionFromForm();
-
-    await testCtrl.test(connection);
+    await context.read(connectionTestProvider).test(_getConnectionFromForm());
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Theme.of(context).backgroundColor,
-      appBar: _buildAppBar(),
-      body: _buildBody(),
+    return WillPopScope(
+      onWillPop: () async {
+        _select(context, null);
+        return true;
+      },
+      child: Scaffold(
+        backgroundColor: Theme.of(context).backgroundColor,
+        appBar: _buildAppBar(),
+        body: _buildBody(),
+      ),
     );
   }
 
@@ -96,8 +103,49 @@ class ConnectionsScreen extends HookWidget {
       children: [
         Expanded(child: Container(color: Colors.white, child: _buildList())),
         VerticalDivider(),
-        Expanded(child: Container(color: Colors.white, child: _buildForm())),
+        Expanded(
+          child: Container(
+            color: Colors.white,
+            child: Column(
+              children: [_buildForm(), _buildTestIndicator()],
+            ),
+          ),
+        ),
       ],
+    );
+  }
+
+  Widget _buildTestIndicator() {
+    const iconSize = 100.0;
+    final connectionTestState = useProvider(connectionTestProvider.state);
+    return Padding(
+      padding: const EdgeInsets.all(100.0),
+      child: connectionTestState.when(
+        data: (result) => result
+            ? const Icon(
+                Icons.check,
+                color: Colors.green,
+                size: iconSize,
+              )
+            : SizedBox.shrink(),
+        loading: () => SizedBox(
+          width: iconSize,
+          height: iconSize,
+          child: const CircularProgressIndicator(
+            strokeWidth: 10.0,
+          ),
+        ),
+        error: (error, st) => Column(
+          children: [
+            const Icon(
+              Icons.error,
+              color: Colors.red,
+              size: iconSize,
+            ),
+            Text(error.toString()),
+          ],
+        ),
+      ),
     );
   }
 

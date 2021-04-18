@@ -4,10 +4,11 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:styled_widget/styled_widget.dart';
 import 'package:tuple/tuple.dart';
 
-import 'package:migrator/utils/utils.dart';
 import 'package:migrator/models/models.dart';
 import 'package:migrator/providers/providers.dart';
-import 'package:migrator/widgets/widgets.dart';
+
+import 'action_mapping_cell.dart';
+import 'cluster_property_cell.dart';
 
 class MigrateScreenBody extends HookWidget {
   MigrateScreenBody({
@@ -113,15 +114,17 @@ class MigrateScreenBody extends HookWidget {
   TableRow _buildTableRow(ItemMapping mapping) {
     final asyncItem =
         useProvider(migrateOutItemFamily(Tuple2(mapping.srcId, mapping.type)));
-    final context = useContext();
 
     final cells = asyncItem.when(
       data: (item) => [
-        _buildItemNameCell(item),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [_buildItemNameText(item), _buildItemIdText(item)],
+        ),
         mapping.type == ItemType.clusterProperty
             ? ClusterPropertyCell(item as ClusterPropertyItem, cwpEditable)
-            : _buildItemTypeCell(mapping),
-        _buildActionMappingCell(context, item)
+            : Text(mapping.rawType),
+        ActionMappingCell(item, this.mappingActionEditable)
       ],
       loading: () => [
         Text('...'),
@@ -143,17 +146,6 @@ class MigrateScreenBody extends HookWidget {
     return TableRow(children: [...cells]);
   }
 
-  Widget _buildItemNameCell(ItemWithId? item) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [_buildItemNameText(item), _buildItemIdText(item)],
-    );
-  }
-
-  Widget _buildItemTypeCell(ItemMapping mapping) {
-    return Text(mapping.rawType);
-  }
-
   Widget _buildItemNameText(Item? item) {
     var name = item?.name ?? 'Unknown';
 
@@ -165,94 +157,9 @@ class MigrateScreenBody extends HookWidget {
   }
 
   Widget _buildItemIdText(ItemWithId? item) {
-    return Text(
-      'ID: ${item?.id ?? ''}',
-      style: TextStyle(
-        fontSize: 10.0,
-        fontStyle: FontStyle.italic,
-        color: Colors.grey,
-      ),
-    );
-  }
-
-  Widget _buildActionMappingCell(BuildContext context, ItemWithId? item) {
-    if (item == null) return Text('Unknown');
-
-    final mappingActionCtrl = context.read(mappingActionFamily(item.id));
-    if (mappingActionEditable) {
-      return DropdownButton<MappingAction>(
-        value: mappingActionCtrl.state,
-        underline: SizedBox(),
-        onChanged: (action) {
-          if (action != null) {
-            mappingActionCtrl.state = action;
-          }
-        },
-        items: MappingAction.values
-            .map(
-              (value) => DropdownMenuItem(
-                value: value,
-                child: Text(value.toString().split('.')[1].toPascalCase()),
-              ),
-            )
-            .toList(),
-      ).sizedBox(height: 30.0);
-    } else {
-      return Text(
-        mappingActionCtrl.state.toString().split('.')[1].toPascalCase(),
-      );
-    }
-  }
-}
-
-class ClusterPropertyCell extends HookWidget {
-  final ClusterPropertyItem? cwp;
-  final bool editable;
-
-  ClusterPropertyCell(this.cwp, this.editable);
-
-  @override
-  Widget build(BuildContext context) {
-    if (cwp == null) return SizedBox();
-
-    final cwpValueCtrl = useProvider(cwpValueFamily(cwp!.id));
-    final value = cwpValueCtrl.state ?? cwp!.value;
-    final maxLength = 45;
-    final isOverflow = value.length > maxLength;
-
-    return Row(
-      children: [
-        Text(isOverflow ? value.substring(0, maxLength) + '...' : value),
-        SizedBox(width: 5.0),
-        IconButton(
-          icon: Icon(editable ? Icons.edit : Icons.loupe),
-          iconSize: 14.0,
-          color: Colors.green,
-          tooltip: editable ? 'Editar valor antes de desplegar' : '',
-          padding: EdgeInsets.zero,
-          constraints: BoxConstraints(),
-          onPressed: () async {
-            if (editable) {
-              final newValue = await prompt(
-                context,
-                title: Text(cwp!.name),
-                initialValue: value,
-                maxLines: 6,
-              );
-
-              if (newValue != null) {
-                cwpValueCtrl.state = newValue;
-              }
-            } else {
-              await alert(
-                context,
-                title: Text(cwp!.name),
-                content: Text(value),
-              );
-            }
-          },
-        ),
-      ],
-    );
+    return Text('ID: ${item?.id ?? ''}')
+        .italic()
+        .textColor(Colors.grey)
+        .fontSize(10.0);
   }
 }
