@@ -13,10 +13,10 @@ def file_write(path, data):
   f.close()
 
 version = os.environ.get('VERSION')
-branchName = os.environ.get('SOURCE_BRANCH')
+branchName = os.environ.get('BRANCH_NAME')
 
 print(f'VERSION: {version}')
-print(f'SOURCE_BRANCH: {branchName}')
+print(f'BRANCH_NAME: {branchName}')
 
 match = re.search(r'(\d+)\.(\d+)\.(\d+)', version)
 version = match.group(0)
