@@ -1,10 +1,11 @@
 import 'package:xml/xml.dart';
 
-import 'package:migrator/common/common.dart';
+import 'package:migrator/utils/utils.dart';
 
 import 'item.dart';
 
 enum MappingAction {
+  unknown,
   newOrExisting,
   newOrUpdate,
   alwaysCreateNew,
@@ -13,6 +14,7 @@ enum MappingAction {
 }
 
 enum MappingActionTaken {
+  unknown,
   usedExisting,
   updatedExisting,
   createdNew,
@@ -25,49 +27,63 @@ class ItemMapping {
 
   final XmlElement element;
 
-  XmlElement get _propsElement => element.getElement('l7:Properties');
+  XmlElement? get _propsElement => element.getElement('l7:Properties');
 
-  String get srcId => element.getAttribute('srcId');
+  String get srcId => element.getAttribute('srcId') ?? '';
 
-  String get rawType => element.getAttribute('type');
+  String get rawType => element.getAttribute('type') ?? '';
 
-  String get rawAction => element.getAttribute('action');
+  String get rawAction => element.getAttribute('action') ?? '';
 
-  String get rawActionTaken => element.getAttribute('actionTaken');
+  String get rawActionTaken => element.getAttribute('actionTaken') ?? '';
 
-  String get rawErrorType => element.getAttribute('errorType');
+  String get rawErrorType => element.getAttribute('errorType') ?? '';
 
   MappingAction get action {
-    return parseEnum(MappingAction.values, rawAction.toCamelCase());
+    return parseEnum(
+      MappingAction.values,
+      rawAction.toCamelCase(),
+      orElse: () => MappingAction.unknown,
+    );
   }
 
   MappingActionTaken get actionTaken {
-    return parseEnum(MappingActionTaken.values, rawActionTaken.toCamelCase());
+    return parseEnum(
+      MappingActionTaken.values,
+      rawActionTaken.toCamelCase(),
+      orElse: () => MappingActionTaken.unknown,
+    );
   }
 
-  ItemType get type {
-    return parseEnum(ItemType.values, rawType.toCamelCase());
-  }
+  ItemType get type => parseEnum(
+        ItemType.values,
+        rawType.toCamelCase(),
+        orElse: () => ItemType.unknown,
+      );
 
   Map<String, dynamic> get properties {
     final props = _propsElement?.findElements('l7:Property');
 
     if (props == null) return {};
 
-    final entries =
-        props.map((e) => MapEntry(e.getAttribute('key'), _getPropValue(e)));
+    final entries = props.map(
+      (e) => MapEntry(
+        e.getAttribute('key'),
+        _getPropValue(e),
+      ),
+    );
 
     return Map.unmodifiable(Map.fromEntries(entries));
   }
 
   dynamic _getPropValue(XmlElement e) {
-    if (e == null) return null;
+    final child = e.firstElementChild;
 
-    switch (e.firstElementChild.name.toString()) {
+    switch (child?.name.toString()) {
       case 'l7:BooleanValue':
-        return e.firstElementChild.innerText == 'true';
+        return child?.innerText == 'true';
       default:
-        return e.firstElementChild.innerText;
+        return child?.innerText;
     }
   }
 }

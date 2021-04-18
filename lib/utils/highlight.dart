@@ -4,15 +4,15 @@ import 'package:flutter_highlight/flutter_highlight.dart';
 import 'package:flutter_highlight/themes/github.dart';
 import 'package:styled_widget/styled_widget.dart';
 
-Future<String> showHighlight(
+Future<void> showHighlight(
   BuildContext context, {
-  Widget title,
-  String code,
+  required Widget title,
+  required String code,
   String language = 'plaintext',
-}) {
+}) async {
   final primaryColor = Theme.of(context).primaryColor;
 
-  return showDialog(
+  await showDialog(
     context: context,
     barrierDismissible: true,
     builder: (_) => AlertDialog(
@@ -34,12 +34,12 @@ Future<String> showHighlight(
         ),
       ),
       actions: [
-        FlatButton.icon(
+        TextButton.icon(
           icon: Icon(Icons.copy, color: primaryColor, size: 16.0),
           label: Text('Copiar').textColor(primaryColor),
           onPressed: () => Clipboard.setData(ClipboardData(text: code)),
         ),
-        FlatButton.icon(
+        TextButton.icon(
           icon: Icon(Icons.close, color: primaryColor, size: 16.0),
           label: Text('Cerrar').textColor(primaryColor),
           onPressed: () => Navigator.pop(context),

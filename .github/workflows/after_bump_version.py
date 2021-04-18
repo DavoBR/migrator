@@ -13,10 +13,10 @@ def file_write(path, data):
   f.close()
 
 version = os.environ.get('VERSION')
-branchName = os.environ.get('SOURCE_BRANCH')
+branchName = os.environ.get('BRANCH_NAME')
 
 print(f'VERSION: {version}')
-print(f'SOURCE_BRANCH: {branchName}')
+print(f'BRANCH_NAME: {branchName}')
 
 match = re.search(r'(\d+)\.(\d+)\.(\d+)', version)
 version = match.group(0)
@@ -48,5 +48,15 @@ file_data = file_read(file_path)
 file_data = re.sub(r'!define VERSIONMAJOR \d+', f'!define VERSIONMAJOR {major}', file_data)
 file_data = re.sub(r'!define VERSIONMINOR \d+', f'!define VERSIONMINOR {minor}', file_data)
 file_data = re.sub(r'!define VERSIONBUILD \d+', f'!define VERSIONBUILD {patch}', file_data)
+
+file_write(file_path, file_data)
+
+
+file_path = './lib/utils/constants.dart'
+
+print(f'::debug Define version in {file_path}')
+
+file_data = file_read(file_path)
+file_data = re.sub('APP_VERSION "debug"', f'APP_VERSION "v{longVersion}"', file_data)
 
 file_write(file_path, file_data)

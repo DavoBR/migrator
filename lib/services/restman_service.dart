@@ -4,47 +4,69 @@ import 'dart:io';
 
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart';
-
-import 'package:migrator/common/common.dart';
-import 'package:migrator/models/models.dart';
 import 'package:xml/xml.dart';
+
+import 'package:migrator/utils/utils.dart';
+import 'package:migrator/models/models.dart';
 
 class RestmanService {
   RestmanService({this.useCache = false});
 
   final bool useCache;
 
-  Future<List<Item>> fetchItems(Connection connection, ItemType type,
-      {String parentFolderId}) async {
+  Future<List<ItemInFolder>> fetchItems(
+    Connection connection,
+    ItemType type, {
+    String? parentFolderId,
+  }) async {
     final resource = ItemConstant.of(type).resource;
     final cacheKey =
         resource + (parentFolderId != null ? '_$parentFolderId' : '');
 
-    String xml = await _fromCache(connection, cacheKey);
-
-    if (xml == null) {
-      xml = await _request(connection, 'GET', '/restman/1.0/$resource',
-          params: {'parentFolder.id': parentFolderId});
-
-      await _toCache(connection, cacheKey, xml);
-    }
+    String? xml = await _fromCache(connection, cacheKey, () async {
+      return await _request(
+        connection,
+        'GET',
+        '/restman/1.0/$resource',
+        params: {'parentFolder.id': parentFolderId},
+      );
+    });
 
     return ItemFactory.listFromXml(xml);
   }
 
-  Future<BundleItem> migrateOut(
+  Future<ItemWithId?> fetchItemById(
+    Connection connection,
+    ItemType type,
+    String id,
+  ) async {
+    final resource = ItemConstant.of(type).resource;
+    final cacheKey = '${resource}_$id';
+
+    String? xml = await _fromCache(connection, cacheKey, () async {
+      return await _request(
+        connection,
+        'GET',
+        '/restman/1.0/$resource/$id',
+      );
+    });
+
+    if (xml == null) return null;
+
+    return ItemFactory.fromXml(xml);
+  }
+
+  Future<BundleItem?> migrateOut(
     Connection connection, {
     List<String> services = const [],
     List<String> policies = const [],
     List<String> folders = const [],
-    String keyPassPhrase,
+    String? keyPassPhrase,
   }) async {
     final resource = 'bundle';
     final cacheKey = 'migrateout';
-    String xml = await _fromCache(connection, cacheKey);
-
-    if (xml == null) {
-      xml = await _request(
+    String? xml = await _fromCache(connection, cacheKey, () async {
+      return await _request(
         connection,
         'GET',
         '/restman/1.0/$resource',
@@ -57,9 +79,9 @@ class RestmanService {
         },
         headers: {'L7-key-passphrase': keyPassPhrase},
       );
+    });
 
-      await _toCache(connection, cacheKey, xml);
-    }
+    if (xml == null) return null;
 
     return ItemFactory.fromXml<BundleItem>(xml);
   }
@@ -67,16 +89,14 @@ class RestmanService {
   Future<BundleMappingsItem> migrateIn(
     Connection connection,
     String bundle, {
-    String keyPassPhrase,
+    String? keyPassPhrase,
     bool test: true,
-    String versionComment,
+    String versionComment = '',
   }) async {
     final resource = 'bundle';
     final cacheKey = 'migratein${(test ? '_test' : '')}';
-    String xml = await _fromCache(connection, cacheKey);
-
-    if (xml == null) {
-      xml = await _request(
+    String xml = await _fromCache(connection, cacheKey, () async {
+      return await _request(
         connection,
         'PUT',
         '/restman/1.0/$resource',
@@ -87,9 +107,7 @@ class RestmanService {
         },
         headers: {'L7-key-passphrase': keyPassPhrase},
       );
-
-      await _toCache(connection, cacheKey, xml);
-    }
+    });
 
     return ItemFactory.fromXml<BundleMappingsItem>(xml);
   }
@@ -109,26 +127,26 @@ class RestmanService {
     return cacheFile;
   }
 
-  Future<String> _fromCache(Connection connection, String resource) async {
-    if (!useCache) return null;
+  Future<String> _fromCache(
+    Connection connection,
+    String resource,
+    Future<String> Function() valueFactory,
+  ) async {
+    if (!useCache) return await valueFactory();
 
     final cacheFile = await _cacheFile(connection, resource);
 
     if (await cacheFile.exists()) {
       await Future.delayed(Duration(seconds: 2));
       return await cacheFile.readAsString();
+    } else {
+      final value = await valueFactory();
+
+      final cacheFile = await _cacheFile(connection, resource);
+      await cacheFile.writeAsString(value);
+
+      return value;
     }
-
-    return null;
-  }
-
-  Future<void> _toCache(
-      Connection connection, String resource, String xml) async {
-    if (!useCache) return null;
-
-    final cacheFile = await _cacheFile(connection, resource);
-
-    await cacheFile.writeAsString(xml);
   }
 
   Future<void> test(Connection connection) async {
@@ -144,46 +162,56 @@ class RestmanService {
       case 200:
         return;
       case 401:
-        throw Failure('Credenciales no validas');
+        throw Exception('Credenciales no validas');
       default:
-        throw Failure('Ha ocurrido un error estableciendo la conexión');
+        throw Exception('Ha ocurrido un error estableciendo la conexión');
     }
   }
 
-  Future<String> _request(Connection connection, String method, String path,
-      {Map<String, dynamic> params,
-      Map<String, String> headers,
-      String xml}) async {
-    if (path != null && !path.startsWith('/')) {
-      path = '/$path';
-    }
+  Future<String> _request(
+    Connection connection,
+    String method,
+    String path, {
+    Map<String, dynamic> params = const {},
+    Map<String, String?> headers = const {},
+    String? xml,
+  }) async {
+    if (!path.startsWith('/')) path = '/$path';
 
     final url = 'https://${connection.host}$path';
 
-    final response = await http(method, url,
-        headers: headers,
-        params: params,
-        body: xml,
-        contentType: 'application/xml',
-        username: connection.username,
-        password: connection.password,
-        certificate: connection.certificate);
+    final response = await http(
+      method,
+      url,
+      headers: headers,
+      params: params,
+      body: xml,
+      contentType: 'application/xml',
+      username: connection.username,
+      password: connection.password,
+      certificate: connection.certificate,
+    );
 
     final result = await response.transform(utf8.decoder).join();
 
     if (response.statusCode == 500) {
       var errorMessage = response.reasonPhrase;
       try {
-        final policyResult = XmlDocument.parse(result)
-            .findAllElements('l7:policyResult')
-            .first
-            .text;
-        if (policyResult != null) {
-          errorMessage = policyResult;
+        final policyResult =
+            XmlDocument.parse(result).findAllElements('l7:policyResult').first;
+
+        final status = policyResult.getAttribute('status');
+
+        if (status != null && status.isNotEmpty) {
+          errorMessage += ' / $status';
+        }
+
+        if (policyResult.text.isNotEmpty) {
+          errorMessage += ' / ${policyResult.text}';
         }
       } catch (_) {}
 
-      throw Failure(errorMessage);
+      throw Exception(errorMessage);
     }
 
     return result;

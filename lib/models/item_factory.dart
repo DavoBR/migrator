@@ -1,6 +1,7 @@
-import 'package:migrator/models/cluster_property_item.dart';
 import 'package:xml/xml.dart';
-import 'package:migrator/common/common.dart';
+
+import 'package:migrator/models/cluster_property_item.dart';
+import 'package:migrator/utils/utils.dart';
 
 import 'item.dart';
 import 'folder_item.dart';
@@ -16,16 +17,19 @@ class ItemFactory {
   static List<T> listFromXml<T extends Item>(String xml) {
     final doc = XmlDocument.parse(xml);
     final items = doc.firstElementChild
-        .findElements('l7:Item')
+        ?.findElements('l7:Item')
         .map((e) => fromElement<T>(e))
         .toList();
 
-    return items;
+    return items ?? [];
   }
 
   static T fromXml<T extends Item>(String xml) {
     final doc = XmlDocument.parse(xml);
     final element = doc.firstElementChild;
+
+    if (element == null)
+      throw Exception('Unexpected xml in ItemFactory.fromXml');
 
     return fromElement<T>(element);
   }
@@ -38,9 +42,11 @@ class ItemFactory {
       throw '$errorType: $errorDetail';
     }
 
-    final rawType = element.getElement('l7:Type')?.text;
-
-    final type = parseEnum(ItemType.values, rawType.toCamelCase());
+    final type = parseEnum(
+      ItemType.values,
+      (element.getElement('l7:Type')?.text ?? '').toCamelCase(),
+      orElse: () => ItemType.unknown,
+    );
 
     Item item;
 

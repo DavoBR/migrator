@@ -1,135 +1,107 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_mobx/flutter_mobx.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:styled_widget/styled_widget.dart';
 
-import 'package:migrator/common/common.dart';
+import 'package:migrator/providers/providers.dart';
+import 'package:migrator/utils/utils.dart';
 import 'package:migrator/widgets/widgets.dart';
-import 'package:migrator/models/models.dart';
-import 'package:migrator/stores/stores.dart';
 
 import 'migrate_in_screen.dart';
 
-class MigrateOutScreen extends StatefulWidget {
-  @override
-  _MigrateOutScreenState createState() => _MigrateOutScreenState();
-}
-
-class _MigrateOutScreenState extends State<MigrateOutScreen> {
-  @override
-  void initState() {
-    super.initState();
-    Future.delayed(Duration(seconds: 1)).then((_) => _migrateOut());
-  }
-
+class MigrateOutScreen extends HookWidget {
   @override
   Widget build(BuildContext context) {
-    final store = context.store<MigrateStore>();
-    return WillPopScope(
-      onWillPop: () async {
-        store.clearMigrateOut();
-        return true;
-      },
-      child: Scaffold(
-        backgroundColor: Theme.of(context).backgroundColor,
-        appBar: AppBar(
-          title: const Text('Descarga de objetos (Migrate Out)'),
-          actions: [
-            ActionButton(
-              icon: CupertinoIcons.lab_flask,
-              label: 'Probar Despliegue',
-              onPressed: () => push(context, (_) => MigrateInScreen()),
-            ),
-            ActionButton(
-              icon: Icons.code,
-              label: 'Bundle',
-              onPressed: () => showHighlight(
+    final context = useContext();
+    useEffect(() {
+      Future.microtask(() => context.read(migrateOutProvider).migrateOut());
+    }, []);
+
+    return Scaffold(
+      backgroundColor: Theme.of(context).backgroundColor,
+      appBar: _buildAppBar(),
+      body: _buildBody(),
+    );
+  }
+
+  AppBar _buildAppBar() {
+    final context = useContext();
+
+    return AppBar(
+      title: const Text('Descarga - Migrate Out'),
+      actions: [
+        ActionButton(
+          icon: CupertinoIcons.lab_flask,
+          label: 'Probar Despliegue',
+          onPressed: () {
+            context.read(migrateOutProvider.state).whenData((value) {
+              push(context, (_) => MigrateInScreen());
+            });
+          },
+        ),
+        SizedBox(width: 5.0),
+        ActionButton(
+          icon: Icons.code,
+          label: 'Bundle',
+          onPressed: () {
+            context.read(migrateOutProvider.state).whenData((bundle) {
+              showHighlight(
                 context,
                 title: Text('Bundle - MigrateOut'),
                 language: 'xml',
-                code: store.bundle.element.toXmlString(pretty: true),
-              ),
-            ),
-          ],
+                code: bundle.element.toXmlString(pretty: true),
+              );
+            });
+          },
         ),
-        body: MigrateScreenBody(
-          statusBar: _buildStatusBar(),
-          mappingActionEditable: true,
-          cwpSuffixIconBuilder: _buildCWPSuffixIcon,
-        ),
-      ),
+      ],
     );
   }
 
-  Widget _buildStatusBar() {
-    final store = context.store<MigrateStore>();
-    return StatusBar(
-      child: Observer(builder: (_) {
-        if (store.bundleFuture != null) {
-          return store.bundleFuture.when(
-            pending: () => Indicator(
-              Text('Descargando bundle de los objetos selecionados...'),
-              color: Colors.green,
-              size: 16.0,
+  Widget _buildBody() {
+    final context = useContext();
+    final migrateOutBundle = useProvider(migrateOutProvider.state);
+
+    return Column(
+      children: [
+        SelectedConnectionsBar(),
+        Expanded(
+          child: migrateOutBundle.when(
+            data: (_) => MigrateScreenBody(
+              mappingActionEditable: true,
+              cwpEditable: true,
             ),
-            fulfilled: (_) => Indicator(
-              Text(
-                'Descarga del bundle completada, proceder con la prueba del despliegue',
-              ),
-              color: Colors.green,
-              size: 16.0,
-              icon: Icons.check,
-            ),
-            rejected: (error) => Indicator(
-              Text('Error descargando el bundle (click para ver detalle)'),
-              color: Colors.red,
-              size: 16.0,
-              icon: Icons.error,
-            ).gestures(
-              onTap: () => alert(
-                context,
-                title: Text('Error de despliegue'),
-                content: Text(error.toString()),
-              ),
-            ),
-          );
-        }
-
-        return SizedBox();
-      }),
-    );
-  }
-
-  void _migrateOut() {
-    final store = context.store<MigrateStore>();
-    store.migrateOut();
-  }
-
-  Widget _buildCWPSuffixIcon(
-    ClusterPropertyItem cwp,
-    String value,
-    bool isOverflow,
-  ) {
-    final store = context.store<MigrateStore>();
-    return IconButton(
-      icon: const Icon(Icons.edit),
-      iconSize: 14.0,
-      color: Colors.green,
-      tooltip: 'Editar valor antes de desplegar',
-      padding: EdgeInsets.zero,
-      constraints: BoxConstraints(),
-      onPressed: () async {
-        final newValue = await prompt(
-          context,
-          title: Text(cwp.name),
-          initialValue: value,
-          maxLines: 6,
-        );
-
-        if (newValue != null) {
-          store.setClusterProperty(cwp, newValue);
-        }
-      },
+            loading: () => Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text('Descargando bundle de los objetos seleccionados...'),
+                SizedBox(height: 20.0),
+                LinearProgressIndicator(),
+              ],
+            ).padding(horizontal: 50.0).center(),
+            error: (error, st) => Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text('Error descargando el bundle'),
+                SizedBox(height: 20.0),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    primary: Theme.of(context).primaryColor,
+                  ),
+                  onPressed: () =>
+                      context.read(migrateOutProvider).migrateOut(),
+                  child: Text('Reintentar'),
+                ),
+                SizedBox(height: 20.0),
+                Text(error.toString()),
+                SizedBox(height: 5.0),
+                Text(st.toString()),
+              ],
+            ).padding(horizontal: 50.0).center(),
+          ),
+        ),
+      ],
     );
   }
 }

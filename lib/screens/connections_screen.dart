@@ -1,281 +1,318 @@
-import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
-import 'package:flutter_mobx/flutter_mobx.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:styled_widget/styled_widget.dart';
 
-import 'package:migrator/common/common.dart';
-import 'package:migrator/widgets/widgets.dart';
 import 'package:migrator/models/models.dart';
-import 'package:migrator/stores/stores.dart';
+import 'package:migrator/providers/providers.dart';
+import 'package:migrator/utils/utils.dart';
+import 'package:migrator/widgets/widgets.dart';
 
-class ConnectionsScreen extends StatefulWidget {
-  @override
-  _ConnectionsScreenState createState() => _ConnectionsScreenState();
-}
-
-class _ConnectionsScreenState extends State<ConnectionsScreen> {
+class ConnectionsScreen extends HookWidget {
   final _formKey = GlobalKey<FormBuilderState>();
+
+  Connection _getConnectionFromForm() {
+    final fields = _formKey.currentState!.fields;
+    return Connection(
+      id: '',
+      name: fields['name']!.value,
+      host: fields['host']!.value,
+      username: fields['username']!.value,
+      password: fields['password']!.value,
+      certificate: fields['certificate']!.value,
+    );
+  }
+
+  void _select(BuildContext context, Connection? connection) {
+    context.read(connectionTestProvider).clear();
+    context.read(selectedConnectionProvider).state = connection;
+  }
+
+  void _save(BuildContext context) async {
+    if (!_formKey.currentState!.saveAndValidate()) return;
+
+    final listCtrl = context.read(connectionListProvider);
+    final testCtrl = context.read(connectionTestProvider);
+    final selected = context.read(selectedConnectionProvider).state;
+    final connection = _getConnectionFromForm();
+
+    testCtrl.clear();
+
+    if (selected == null) {
+      await listCtrl.add(connection);
+    } else {
+      connection.id = selected.id;
+      await listCtrl.update(connection);
+    }
+  }
+
+  void _test(BuildContext context) async {
+    if (!_formKey.currentState!.saveAndValidate()) return;
+
+    await context.read(connectionTestProvider).test(_getConnectionFromForm());
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Theme.of(context).backgroundColor,
-      appBar: AppBar(
-        title: Text('Conexiones'),
-        actions: [
-          ActionButton(
-            icon: CupertinoIcons.plus,
-            label: 'Nuevo',
-            onPressed: () => _select(null),
-          ),
-          ActionButton(
-            icon: Icons.save,
-            label: 'Guardar',
-            onPressed: () => _save(),
-          ),
-          ActionButton(
-            icon: CupertinoIcons.lab_flask,
-            label: 'Probar',
-            onPressed: () => _test(),
-          ),
-        ],
+    return WillPopScope(
+      onWillPop: () async {
+        _select(context, null);
+        return true;
+      },
+      child: Scaffold(
+        backgroundColor: Theme.of(context).backgroundColor,
+        appBar: _buildAppBar(),
+        body: _buildBody(),
       ),
-      body: _buildBody(),
+    );
+  }
+
+  AppBar _buildAppBar() {
+    final context = useContext();
+
+    return AppBar(
+      title: Text('Conexiones'),
+      actions: [
+        ActionButton(
+          icon: CupertinoIcons.plus,
+          label: 'Nuevo',
+          onPressed: () => _select(context, null),
+        ),
+        const SizedBox(width: 5.0),
+        ActionButton(
+          icon: Icons.save,
+          label: 'Guardar',
+          onPressed: () => _save(context),
+        ),
+        const SizedBox(width: 5.0),
+        ActionButton(
+          icon: CupertinoIcons.lab_flask,
+          label: 'Probar',
+          onPressed: () => _test(context),
+        ),
+        const SizedBox(width: 5.0),
+      ],
     );
   }
 
   Widget _buildBody() {
-    return Column(
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _buildBodyContent(),
-        _buildStatusBar(),
+        Expanded(child: Container(color: Colors.white, child: _buildList())),
+        VerticalDivider(),
+        Expanded(
+          child: Container(
+            color: Colors.white,
+            child: Column(
+              children: [_buildForm(), _buildTestIndicator()],
+            ),
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildBodyContent() {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _buildList().expanded(),
-        _buildForm().expanded(),
-      ],
-    ).flexible(fit: FlexFit.tight);
-  }
-
-  Widget _buildStatusBar() {
-    final store = context.store<ConnectionsStore>();
-    return StatusBar(
-      child: Observer(
-        builder: (_) {
-          if (store.testFuture != null) {
-            return store.testFuture.when(
-              pending: () => Indicator(
-                Text('Probando conexión...'),
+  Widget _buildTestIndicator() {
+    const iconSize = 100.0;
+    final connectionTestState = useProvider(connectionTestProvider.state);
+    return Padding(
+      padding: const EdgeInsets.all(100.0),
+      child: connectionTestState.when(
+        data: (result) => result
+            ? const Icon(
+                Icons.check,
                 color: Colors.green,
-                size: 16.0,
-              ),
-              fulfilled: (_) => Indicator(
-                Text('Conexión exitosa'),
-                icon: Icons.check,
-                color: Colors.green,
-                size: 16.0,
-              ),
-              rejected: (error) => Indicator(
-                Text('Error de conexión (click para ve detalle'),
-                icon: Icons.error,
-                color: Colors.red,
-                size: 16.0,
-              ).gestures(
-                onTap: () => alert(
-                  context,
-                  title: Text('Error de conexión'),
-                  content: Text(error.toString()),
-                ),
-              ),
-            );
-          }
-          return SizedBox();
-        },
+                size: iconSize,
+              )
+            : SizedBox.shrink(),
+        loading: () => SizedBox(
+          width: iconSize,
+          height: iconSize,
+          child: const CircularProgressIndicator(
+            strokeWidth: 10.0,
+          ),
+        ),
+        error: (error, st) => Column(
+          children: [
+            const Icon(
+              Icons.error,
+              color: Colors.red,
+              size: iconSize,
+            ),
+            Text(error.toString()),
+          ],
+        ),
       ),
     );
   }
 
-  Connection get _connection {
-    final fields = _formKey.currentState.fields;
-    return Connection(
-        name: fields['name'].currentState.value,
-        host: fields['host'].currentState.value,
-        username: fields['username'].currentState.value,
-        password: fields['password'].currentState.value,
-        certificate: fields['certificate'].currentState.value);
-  }
-
-  void _select(Connection connection) {
-    context.store<ConnectionsStore>().select(connection);
-    _formKey.currentState.reset();
-    _formKey.currentState.fields['name'].currentState
-        .didChange(connection?.name ?? '');
-    _formKey.currentState.fields['host'].currentState
-        .didChange(connection?.host ?? '');
-    _formKey.currentState.fields['username'].currentState
-        .didChange(connection?.username ?? '');
-    _formKey.currentState.fields['password'].currentState
-        .didChange(connection?.password ?? '');
-    _formKey.currentState.fields['certificate'].currentState
-        .didChange(connection?.certificate ?? null);
-  }
-
-  void _save() {
-    if (!_formKey.currentState.saveAndValidate()) return;
-
-    context.store<ConnectionsStore>().save(_connection);
-  }
-
-  void _test() {
-    if (!_formKey.currentState.saveAndValidate()) return;
-
-    final store = context.store<ConnectionsStore>();
-
-    store.test(_connection);
-  }
-
   Widget _buildList() {
-    final store = context.store<ConnectionsStore>();
-    return Observer(
-      builder: (context) {
-        if (store.connections.length == 0) {
+    final connectionListState = useProvider(connectionListProvider.state);
+    final connectionListCtrl = useProvider(connectionListProvider);
+
+    useEffect(() {
+      Future.microtask(() => connectionListCtrl.fetch());
+    }, []);
+
+    return connectionListState.when(
+      data: (connections) {
+        if (connections.length == 0)
           return Text('No hay conexiones configuradas').center();
-        }
 
         return ListView.separated(
-          itemCount: store.connections.length,
+          itemCount: connections.length,
           shrinkWrap: true,
-          separatorBuilder: (_, __) => Divider(
+          separatorBuilder: (context, itemCount) => Divider(
             color: Theme.of(context).primaryColor,
           ),
-          itemBuilder: (context, index) => _buildTile(store.connections[index]),
-        );
-      },
-    ).card(elevation: 8);
-  }
-
-  Widget _buildTile(Connection connection) {
-    final store = context.store<ConnectionsStore>();
-    return Observer(
-      builder: (_) {
-        final selected = store.selected == connection;
-        return ListTile(
-          selected: selected,
-          leading: Icon(Icons.public).padding(right: 12.0).border(right: 1.0),
-          title: Text(connection.toString()),
-          trailing: Wrap(
-            spacing: 8,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.edit),
-                iconSize: 16.0,
-                tooltip: 'Editar',
-                onPressed: () => _select(connection),
-              ),
-              IconButton(
-                icon: const Icon(Icons.delete, color: Colors.red),
-                iconSize: 16.0,
-                tooltip: 'Eliminar',
-                onPressed: () => store.remove(connection),
-              ),
-            ],
+          itemBuilder: (context, index) => _buildTile(
+            context,
+            connections[index],
           ),
         );
       },
+      loading: () => Text('Cargando...').center(),
+      error: (e, st) =>
+          Text('Ha ocurrido un error cargando las conexiones').center(),
+    );
+  }
+
+  Widget _buildTile(BuildContext context, Connection connection) {
+    final connectionList = context.read(connectionListProvider);
+    final selected = context.read(selectedConnectionProvider).state;
+
+    return ListTile(
+      selected: selected?.id == connection.id,
+      leading: Icon(Icons.public).padding(right: 12.0).border(right: 1.0),
+      title: Text(connection.toString()),
+      trailing: Wrap(
+        spacing: 8,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.edit, color: Colors.blue),
+            iconSize: 16.0,
+            tooltip: 'Editar',
+            onPressed: () => _select(context, connection),
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete, color: Colors.red),
+            iconSize: 16.0,
+            tooltip: 'Eliminar',
+            onPressed: () => connectionList.delete(connection),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildForm() {
-    return Card(
-      elevation: 8.0,
-      child: FormBuilder(
-        key: _formKey,
-        child: Column(
-          children: [
-            FormBuilderTextField(
-              attribute: "name",
-              decoration: InputDecoration(
-                labelText: "Nombre",
-                prefixIcon: Icon(Icons.text_fields),
-              ),
-              validators: [
-                FormBuilderValidators.max(20),
-                FormBuilderValidators.required(),
-              ],
-            ),
-            FormBuilderTextField(
-              attribute: "host",
-              decoration: InputDecoration(
-                labelText: "Gateway Host",
-                prefixIcon: Icon(Icons.public),
-              ),
-              validators: [FormBuilderValidators.required()],
-            ),
-            FormBuilderTextField(
-              attribute: 'username',
-              decoration: InputDecoration(
-                labelText: 'Usuario',
-                prefixIcon: Icon(Icons.person),
-              ),
-              validators: [
-                FormBuilderValidators.max(20),
-              ],
-            ),
-            FormBuilderTextField(
-              attribute: 'password',
-              obscureText: true,
-              decoration: InputDecoration(
-                labelText: 'Contraseña',
-                prefixIcon: Icon(Icons.lock),
-              ),
-              validators: [
-                FormBuilderValidators.max(100),
-              ],
-            ),
-            FormBuilderFileField(
-              attribute: 'certificate',
-              decoration: InputDecoration(
-                labelText: 'Certificado',
-                prefixIcon: Icon(Icons.vpn_key),
-              ),
-              filter: {
-                'PKCS #12  (*.p12;*.pfx)': '*.p12;*.pfx',
-                'All Files': '*.*'
-              },
-              defaultExtension: 'p12',
-              dialogTitle: 'Selecionar certificado asignado al usuario',
-              textBuilder: (file) {
-                return Text(file != null ? 'Cambiar certificado' : '');
-              },
-              onChanged: (file) async {
-                final password = await prompt<String>(
-                  context,
-                  title: Text('Escribe la contraseña del certificado'),
-                  obscureText: true,
-                  textOK: Text('Aceptar'),
-                  textCancel: Text('Cancelar'),
-                );
+    final context = useContext();
+    final selected = useProvider(selectedConnectionProvider).state;
 
-                if (password == null) {
-                  _formKey.currentState.fields['certificate'].currentState
-                      .didChange(null);
-                } else {
-                  _formKey.currentState.fields['username'].currentState
-                      .didChange('');
-                  _formKey.currentState.fields['password'].currentState
-                      .didChange(password);
-                }
-              },
+    useEffect(() {
+      if (_formKey.currentState != null) {
+        if (selected != null) {
+          final fields = _formKey.currentState!.fields;
+
+          fields['name']!.didChange(selected.name);
+          fields['host']!.didChange(selected.host);
+          fields['username']!.didChange(selected.username);
+          fields['password']!.didChange(selected.password);
+          fields['certificate']!.didChange(selected.certificate);
+        } else {
+          _formKey.currentState!.reset();
+        }
+      }
+    }, [selected]);
+
+    return FormBuilder(
+      key: _formKey,
+      initialValue: {
+        'name': selected?.name,
+        'host': selected?.host,
+        'username': selected?.username,
+        'password': selected?.password,
+        'certificate': selected?.certificate,
+      },
+      child: Column(
+        children: [
+          FormBuilderTextField(
+            name: "name",
+            decoration: InputDecoration(
+              labelText: "Nombre",
+              prefixIcon: Icon(Icons.text_fields),
             ),
-          ],
-        ),
+            validator: FormBuilderValidators.compose([
+              FormBuilderValidators.max(context, 20),
+              FormBuilderValidators.required(context),
+            ]),
+          ),
+          FormBuilderTextField(
+            name: "host",
+            decoration: InputDecoration(
+              labelText: "Gateway Host",
+              prefixIcon: Icon(Icons.public),
+            ),
+            validator: FormBuilderValidators.compose(
+                [FormBuilderValidators.required(context)]),
+          ),
+          FormBuilderTextField(
+            name: 'username',
+            decoration: InputDecoration(
+              labelText: 'Usuario',
+              prefixIcon: Icon(Icons.person),
+            ),
+            validator: FormBuilderValidators.compose([
+              FormBuilderValidators.max(context, 20),
+            ]),
+          ),
+          FormBuilderTextField(
+            name: 'password',
+            obscureText: true,
+            decoration: InputDecoration(
+              labelText: 'Contraseña',
+              prefixIcon: Icon(Icons.lock),
+            ),
+            validator: FormBuilderValidators.compose([
+              FormBuilderValidators.max(context, 100),
+            ]),
+          ),
+          FormBuilderFileField(
+            name: 'certificate',
+            decoration: InputDecoration(
+              labelText: 'Certificado',
+              prefixIcon: Icon(Icons.vpn_key),
+            ),
+            filter: {
+              'PKCS #12  (*.p12;*.pfx)': '*.p12;*.pfx',
+              'All Files': '*.*'
+            },
+            defaultExtension: 'p12',
+            dialogTitle: 'Selecionar certificado asignado al usuario',
+            textBuilder: (file) {
+              return Text(file != null ? 'Cambiar certificado' : '');
+            },
+            onChanged: (file) async {
+              final password = await prompt<String>(
+                context,
+                title: Text('Escribe la contraseña del certificado'),
+                obscureText: true,
+                textOK: Text('Aceptar'),
+                textCancel: Text('Cancelar'),
+              );
+
+              if (password == null) {
+                _formKey.currentState!.fields['certificate']!.didChange(null);
+              } else {
+                _formKey.currentState!.fields['username']!.didChange('');
+                _formKey.currentState!.fields['password']!.didChange(password);
+              }
+            },
+          ),
+        ],
       ),
     );
   }

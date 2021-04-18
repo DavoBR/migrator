@@ -1,178 +1,126 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_mobx/flutter_mobx.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:flutter_simple_treeview/flutter_simple_treeview.dart';
-import 'package:split_view/split_view.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:migrator/providers/item_providers.dart';
+import 'package:migrator/utils/utils.dart';
 import 'package:styled_widget/styled_widget.dart';
-import 'package:mobx/mobx.dart';
-import 'package:flutter_spinkit/flutter_spinkit.dart';
 
-import 'package:migrator/common/common.dart';
 import 'package:migrator/widgets/widgets.dart';
 import 'package:migrator/models/models.dart';
-import 'package:migrator/stores/stores.dart';
+import 'package:migrator/providers/providers.dart';
 
 import 'migrate_out_screen.dart';
 
-class SelectItemsScreen extends StatefulWidget {
-  SelectItemsScreen();
-
-  @override
-  _SelectItemsScreenState createState() => _SelectItemsScreenState();
-}
-
-class _SelectItemsScreenState extends State<SelectItemsScreen> {
+class SelectItemsScreen extends HookWidget {
   final _treeCtrl = TreeController(allNodesExpanded: false);
-
-  ObservableFuture<List<Item>> itemsFuture;
-
-  @override
-  void initState() {
-    super.initState();
-    Future.delayed(Duration(seconds: 1)).then((_) => _loadInitialItems());
-  }
-
-  void _loadInitialItems() {
-    final store = context.store<ItemsStore>();
-
-    store.items.clear();
-    store.selectedIds.clear();
-
-    // descargar la primera carpeta
-    var future = store.loadItems('');
-
-    future = future.then((items) async {
-      // descargar contenido de la primera carpeta
-      final items2 = await store.loadItems(items.first.id);
-      _treeCtrl.expandAll();
-      return [...items, ...items2];
-    });
-
-    setState(() {
-      itemsFuture = ObservableFuture(future);
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
-    final store = context.store<ItemsStore>();
+    useEffect(() {
+      Future.microtask(
+          () async => await context.read(itemListProvider).fetchRootItems());
+    }, []);
+
     return WillPopScope(
       onWillPop: () async {
-        store.clear();
+        context.read(itemListProvider).clear();
+        context.read(selectedItemIdsProvider).clear();
+        context.read(sourceConnectionProvider).state = null;
+        context.read(targetConnectionProvider).state = null;
         return true;
       },
       child: Scaffold(
         backgroundColor: Theme.of(context).backgroundColor,
-        appBar: AppBar(
-          title: const Text('Selecionar objectos'),
-          actions: [
-            ActionButton(
-              icon: Icons.download_outlined,
-              label: 'Descargar (Migrate Out)',
-              onPressed: () => push(context, (_) => MigrateOutScreen()),
-            )
-          ],
-        ),
-        body: Column(
-          children: [
-            _buildBodyContent(),
-            _buildStatusBar(),
-          ],
-        ),
+        appBar: _buildAppBar(),
+        body: _buildBody(),
       ),
     );
   }
 
-  Widget _buildBodyContent() {
-    return SplitView(
-      viewMode: SplitViewMode.Horizontal,
-      initialWeight: 0.3,
-      gripColor: Theme.of(context).backgroundColor,
-      gripSize: 8.0,
-      view1: _buildTreeView().padding(all: 8.0),
-      view2: _buildRightPanel().padding(all: 8.0),
-    ).card(elevation: 8.0).flexible(fit: FlexFit.tight);
+  AppBar _buildAppBar() {
+    final context = useContext();
+    return AppBar(
+      title: const Text('Selecionar objetos'),
+      actions: [
+        ActionButton(
+          icon: Icons.download_outlined,
+          label: 'Descargar (Migrate Out)',
+          onPressed: () => push(context, (_) => MigrateOutScreen()),
+        )
+      ],
+    );
   }
 
-  Widget _buildStatusBar() {
-    return StatusBar(
-      child: FutureBuilder(
-        future: itemsFuture,
-        builder: (context, snaphost) {
-          return snaphost.when(
-            none: () => Indicator(
-              Text('Espere...'),
-              color: Colors.green,
-              size: 16.0,
+  Widget _buildBody() {
+    final context = useContext();
+    final itemList = useProvider(itemListProvider.state);
+
+    return Column(
+      children: [
+        SelectedConnectionsBar(),
+        Expanded(
+          child: itemList.when(
+            data: (_) => SplitView(
+              viewMode: SplitViewMode.Vertical,
+              initialWeight: 0.6,
+              gripColor: Theme.of(context).primaryColor,
+              gripSize: 3.0,
+              view1: _buildTreeView().padding(all: 8.0),
+              view2: _buildSelectedsPanel().padding(all: 8.0),
             ),
-            waiting: () => Indicator(
-              Text('Descargando objetos...'),
-              color: Colors.green,
-              size: 16.0,
-            ),
-            data: (_) => Observer(builder: (_) {
-              final store = context.store<ItemsStore>();
-              if (store.selectedIds.isEmpty) {
-                return Indicator(
-                  Text(
-                    'Selecionar objetos a migrar',
+            loading: () => Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text('Descargando carpeta raiz...'),
+                SizedBox(height: 20.0),
+                LinearProgressIndicator(),
+              ],
+            ).padding(horizontal: 50.0).center(),
+            error: (error, st) => Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text('Error descargando la carpeta raiz'),
+                SizedBox(height: 20.0),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    primary: Theme.of(context).primaryColor,
                   ),
-                  color: Colors.blue,
-                  size: 16.0,
-                  icon: Icons.info,
-                );
-              } else {
-                return Indicator(
-                  Text(
-                    'Proceder con la descarga del bundle',
-                  ),
-                  color: Colors.blue,
-                  size: 16.0,
-                  icon: Icons.info,
-                );
-              }
-            }),
-            error: (error) => Indicator(
-              Text('Error descargando el bundle'),
-              color: Colors.red,
-              size: 16.0,
-              icon: Icons.error,
-            ).gestures(
-              onTap: () => alert(
-                context,
-                title: Text('Error de despliegue'),
-                content: Text(error.toString()),
-              ),
-            ),
-          );
-        },
-      ),
+                  onPressed: () =>
+                      context.read(itemListProvider).fetchRootItems(),
+                  child: Text('Reintentar'),
+                ),
+                SizedBox(height: 20.0),
+                Text(error.toString()),
+                SizedBox(height: 5.0),
+                Text(st.toString()),
+              ],
+            ).padding(horizontal: 50.0).center(),
+          ),
+        ),
+      ],
     );
   }
 
   Widget _buildTreeView() {
+    final rootFolderId = useProvider(rootFolderIdProvider);
+
     return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.vertical,
-        child: Observer(builder: (_) {
-          return TreeView(
-            treeController: _treeCtrl,
-            indent: 15.0,
-            nodes: _buildTreeChildren(null),
-          );
-        }),
+      scrollDirection: Axis.vertical,
+      child: TreeView(
+        treeController: _treeCtrl,
+        indent: 15.0,
+        nodes: _buildTreeChildren(rootFolderId),
       ),
     );
   }
 
-  List<TreeNode> _buildTreeChildren(String folderId) {
-    final store = context.store<ItemsStore>();
-    final items = store.items
-        .where((item) => item.folderId == folderId)
-        .map((item) => _buildTreeNode(item))
-        .toList();
+  List<TreeNode> _buildTreeChildren(String? folderId) {
+    final items = useProvider(folderItemsFamily(folderId));
 
-    return items;
+    if (items.isEmpty) return [];
+
+    return items.map((item) => _buildTreeNode(item)).toList();
   }
 
   String _buildTooltipText(Item item) {
@@ -184,8 +132,9 @@ class _SelectItemsScreenState extends State<SelectItemsScreen> {
   }
 
   TreeNode _buildTreeNode(ItemInFolder item) {
-    final store = context.store<ItemsStore>();
     final key = Key(item.id);
+    final context = useContext();
+
     return TreeNode(
       key: key,
       content: GestureDetector(
@@ -193,20 +142,12 @@ class _SelectItemsScreenState extends State<SelectItemsScreen> {
           message: _buildTooltipText(item),
           child: _buildNodeContent(item),
         ),
-        onDoubleTap: () {
+        onDoubleTap: () async {
           if (item is FolderItem) {
-            if (store.folderLoadState.get(item.id, orElse: () => false)) {
-              return;
-            }
-
-            final future = store.loadItems(item.id);
             _treeCtrl.expandNode(key);
-
-            setState(() {
-              itemsFuture = ObservableFuture(future);
-            });
+            context.read(itemListProvider).fetchItems(item.id);
           } else {
-            store.select(item);
+            context.read(selectedItemIdsProvider).select(item.id);
           }
         },
       ),
@@ -214,54 +155,9 @@ class _SelectItemsScreenState extends State<SelectItemsScreen> {
     );
   }
 
-  Widget _buildNodeIcon(ItemInFolder item) {
-    Color color;
-    IconData icon;
-    double size = 18.0;
-
-    switch (item.type) {
-      case ItemType.folder:
-        icon = Icons.folder;
-        color = Colors.green;
-
-        final store = context.store<ItemsStore>();
-        if (store.folderLoadState.get(item.id, orElse: () => false)) {
-          return SpinKitCircle(color: color, size: size).sizedBox(height: size);
-        }
-        break;
-      case ItemType.service:
-        final service = item as ServiceItem;
-        icon = Icons.insert_drive_file;
-        color = service.isEnabled ? Colors.blue : Colors.red;
-        break;
-      case ItemType.policy:
-        final policy = item as PolicyItem;
-        icon = Icons.insert_drive_file_outlined;
-        switch (policy.policyType) {
-          case PolicyType.internal:
-            color = Colors.orange;
-            break;
-          case PolicyType.serviceOperation:
-            color = Colors.deepOrange;
-            break;
-          default:
-            color = Colors.lightBlue;
-        }
-        break;
-      default:
-        icon = Icons.check_box_outline_blank;
-    }
-
-    return Icon(
-      icon,
-      color: color,
-      size: size,
-    );
-  }
-
   Widget _buildNodeContent(ItemInFolder item) {
     String text = item.name;
-    TextStyle textStyle;
+    TextStyle? textStyle;
 
     if (item is ServiceItem) {
       text += ' [${item.urlPattern}]';
@@ -276,7 +172,7 @@ class _SelectItemsScreenState extends State<SelectItemsScreen> {
     }
 
     final content = Row(children: [
-      _buildNodeIcon(item),
+      NodeIcon(item),
       SizedBox(width: 5.0),
       Text(text, style: textStyle),
     ]);
@@ -291,70 +187,43 @@ class _SelectItemsScreenState extends State<SelectItemsScreen> {
     );
   }
 
-  Widget _buildRightPanel() {
-    final store = context.store<ItemsStore>();
-    return Observer(builder: (_) {
-      if (store.items.isEmpty) {
-        if (store.folderLoadState.isEmpty) {
-          return Indicator(
-            Text('Esperar...'),
-            alignment: MainAxisAlignment.center,
-          );
-        }
+  Widget _buildSelectedsPanel() {
+    final context = useContext();
+    final selectedItems = useProvider(selectedItemsProvider);
 
-        if (store.folderLoadState.containsValue(true)) {
-          return Indicator(
-            Text(
-              'Descargando carpetas, servicios y politicas...',
-            ),
-            alignment: MainAxisAlignment.center,
-          );
-        }
-      }
+    return SingleChildScrollView(
+      scrollDirection: Axis.vertical,
+      child: DragTarget<ItemInFolder>(
+        onWillAccept: (item) => item is ServiceItem || item is PolicyItem,
+        onAccept: (item) =>
+            context.read(selectedItemIdsProvider).select(item.id),
+        builder: (context, accepteds, rejecteds) {
+          if (selectedItems.isEmpty)
+            return const Text(
+              'Arrastra aquí los servicios o politicas a desplegar y luego hacer click en Descargar (Migrate out) para continuar',
+            ).center();
 
-      return _buildDropZone();
-    });
-  }
-
-  Widget _buildDropZone() {
-    final store = context.store<ItemsStore>();
-
-    return DragTarget<ItemInFolder>(
-      onWillAccept: (item) => item is ServiceItem || item is PolicyItem,
-      onAccept: (item) => store.select(item),
-      builder: (context, accepteds, rejecteds) {
-        if (store.selectedIds.isEmpty) {
-          return const Text(
-            'Arrastra aquí los servicios o politicas a desplegar',
-          ).center();
-        }
-
-        return _buildTable();
-      },
+          return _buildTable(context);
+        },
+      ),
     );
   }
 
-  Widget _buildTable() {
-    final store = context.store<ItemsStore>();
+  Widget _buildTable(BuildContext context) {
+    final selectedItems = context.read(selectedItemsProvider);
 
-    return Observer(builder: (_) {
-      return Align(
-        alignment: Alignment.topRight,
-        child: Table(
-          columnWidths: {
-            0: FixedColumnWidth(50.0),
-            1: FlexColumnWidth(),
-            2: FixedColumnWidth(100.0),
-            3: FixedColumnWidth(250.0),
-          },
-          defaultVerticalAlignment: TableCellVerticalAlignment.middle,
-          children: [
-            _buildTableHeader(),
-            ...store.selectedItems.map(_buildTableRow),
-          ],
-        ),
-      );
-    });
+    return Table(
+      columnWidths: {
+        0: FixedColumnWidth(50.0),
+        1: FlexColumnWidth(),
+        2: FixedColumnWidth(100.0),
+      },
+      defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+      children: [
+        _buildTableHeader(),
+        ...selectedItems.map((item) => _buildTableRow(context, item)),
+      ],
+    ).alignment(Alignment.topRight);
   }
 
   Widget _buildHeaderText(String text) {
@@ -364,16 +233,15 @@ class _SelectItemsScreenState extends State<SelectItemsScreen> {
   TableRow _buildTableHeader() {
     return TableRow(
       children: [
-        Container(),
+        SizedBox.shrink(),
         _buildHeaderText('Nombre'),
         _buildHeaderText('Tipo'),
-        _buildHeaderText('Id'),
       ],
     );
   }
 
-  TableRow _buildTableRow(ItemInFolder item) {
-    final store = context.store<ItemsStore>();
+  TableRow _buildTableRow(BuildContext context, ItemInFolder item) {
+    final selectedItemIdsCtrl = context.read(selectedItemIdsProvider);
 
     var name = item.name;
 
@@ -386,11 +254,19 @@ class _SelectItemsScreenState extends State<SelectItemsScreen> {
         IconButton(
           icon: const Icon(Icons.close, color: Colors.red),
           iconSize: 16.0,
-          onPressed: () => store.deselect(item),
+          onPressed: () => selectedItemIdsCtrl.unselect(item.id),
         ),
-        Text(name),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(name),
+            Text('ID: ${item.id}')
+                .italic()
+                .textColor(Colors.grey)
+                .fontSize(10.0),
+          ],
+        ),
         Text(item.rawType),
-        Text(item.id),
       ],
     );
   }

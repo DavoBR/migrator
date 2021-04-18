@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
 
-Future<T> prompt<T>(
+Future<T?> prompt<T>(
   BuildContext context, {
-  Widget title,
-  Widget textOK,
-  Widget textCancel,
-  T initialValue,
-  InputDecoration inputDecoration,
+  Widget title = const Text(''),
+  Widget textOK = const Text('Aceptar'),
+  Widget textCancel = const Text('Cancelar'),
+  T? initialValue,
+  InputDecoration? inputDecoration,
   int minLines = 1,
   int maxLines = 1,
   bool obscureText: false,
   TextInputType keyboardType = TextInputType.text,
   List<DropdownMenuItem<T>> items = const [],
-}) {
-  T value = initialValue;
+}) async {
+  T? value = initialValue;
   Widget content;
 
   if (items.isNotEmpty) {
@@ -32,30 +32,34 @@ Future<T> prompt<T>(
       minLines: minLines,
       maxLines: maxLines,
       autofocus: true,
-      initialValue: initialValue as String,
+      initialValue: initialValue?.toString(),
       onChanged: (text) => value = text as T,
     );
   }
 
-  return showDialog(
+  var result = await showDialog<T>(
     context: context,
     builder: (_) => WillPopScope(
       child: AlertDialog(
-        title: title ?? Text(''),
+        title: title,
         content: content,
         actions: <Widget>[
-          FlatButton(
-              child: textCancel ?? Text('Cancelar'),
-              onPressed: () => Navigator.pop(context, null)),
-          FlatButton(
-              child: textOK ?? Text('Aceptar'),
-              onPressed: () => Navigator.pop(context, value)),
+          TextButton(
+            child: textCancel,
+            onPressed: () => Navigator.pop(context, null),
+          ),
+          TextButton(
+            child: textOK,
+            onPressed: () => Navigator.pop(context, value),
+          ),
         ],
       ),
       onWillPop: () {
         Navigator.pop(context, null);
-        return;
+        return Future.value(false);
       },
     ),
   );
+
+  return result;
 }

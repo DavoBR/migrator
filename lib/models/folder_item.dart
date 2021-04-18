@@ -6,8 +6,10 @@ class FolderItem extends ItemInFolder {
   FolderItem(XmlElement element) : super(element);
 
   @override
-  String get folderId => element
-      .getElement('l7:Resource')
-      .getElement('l7:Folder')
-      .getAttribute('folderId');
+  String get folderId =>
+      element
+          .getElement('l7:Resource')
+          ?.getElement('l7:Folder')
+          ?.getAttribute('folderId') ??
+      '';
 }
