@@ -191,21 +191,24 @@ class SelectItemsScreen extends HookWidget {
     final context = useContext();
     final selectedItems = useProvider(selectedItemsProvider);
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.vertical,
-      child: DragTarget<ItemInFolder>(
-        onWillAccept: (item) => item is ServiceItem || item is PolicyItem,
-        onAccept: (item) =>
-            context.read(selectedItemIdsProvider).select(item.id),
-        builder: (context, accepteds, rejecteds) {
-          if (selectedItems.isEmpty)
-            return const Text(
-              'Arrastra aquí los servicios o politicas a desplegar y luego hacer click en Descargar (Migrate out) para continuar',
-            ).center();
+    return DragTarget<ItemInFolder>(
+      onWillAccept: (item) => item is ServiceItem || item is PolicyItem,
+      onAccept: (item) {
+        context.read(selectedItemIdsProvider).select(item.id);
+      },
+      builder: (context, accepteds, rejecteds) {
+        if (selectedItems.isEmpty)
+          return const Text(
+            'Arrastra aquí o haz doble click en los servicios o politicas ' +
+                'a desplegar y luego hacer click en Descargar ' +
+                ' (Migrate out) para continuar.',
+          ).center();
 
-          return _buildTable(context);
-        },
-      ),
+        return SingleChildScrollView(
+          scrollDirection: Axis.vertical,
+          child: _buildTable(context),
+        );
+      },
     );
   }
 
