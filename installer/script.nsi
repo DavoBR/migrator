@@ -19,7 +19,7 @@
 
   ;Name and file
   Name "${APPNAME}"
-  OutFile "CA_API_Gateway_Migrator_v${VERSIONMAJOR}.${VERSIONMINOR}.${VERSIONBUILD}.exe"
+  OutFile "setup.exe"
   Unicode True
 
   ;Default installation folder
