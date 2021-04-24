@@ -69,7 +69,7 @@ Section "Install Files" InstallFiles
   File "deps\VC_redist.x64.exe"
 
   ; Install Visual Studio Runtime
-  ExecWait '"$INSTDIR\VC_redist.x64.exe" /quiet'
+  ExecWait '"$INSTDIR\VC_redist.x64.exe" /quiet /norestart'
   Delete "$INSTDIR\VC_redist.x64.exe"
 
   ;Store installation folder
