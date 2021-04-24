@@ -65,6 +65,7 @@ Section "Install Files" InstallFiles
   ; Files
   File "..\build\windows\runner\Release\migrator.exe"
   File "..\build\windows\runner\Release\flutter_windows.dll"
+  File "..\build\windows\runner\Release\url_launcher_windows_plugin.dll"
   File /r "..\build\windows\runner\Release\data"
   File "deps\VC_redist.x64.exe"
 
