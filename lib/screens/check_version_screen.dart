@@ -58,7 +58,19 @@ class CheckVersionScreen extends HookWidget {
                       children: [
                         Text('Nueva versión disponible'),
                         SizedBox(height: 20.0),
-                        Text(name),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(APP_VERSION),
+                            const SizedBox(width: 5.0),
+                            const Icon(
+                              Icons.arrow_forward,
+                              color: Colors.green,
+                            ),
+                            const SizedBox(width: 5.0),
+                            Text(name)
+                          ],
+                        ),
                         SizedBox(height: 10.0),
                         Text(body),
                         SizedBox(height: 10.0),

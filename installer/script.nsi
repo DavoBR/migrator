@@ -19,7 +19,7 @@
 
   ;Name and file
   Name "${APPNAME}"
-  OutFile "CA_API_Gateway_Migrator_v${VERSIONMAJOR}.${VERSIONMINOR}.${VERSIONBUILD}.exe"
+  OutFile "setup.exe"
   Unicode True
 
   ;Default installation folder
@@ -39,7 +39,7 @@
 ;--------------------------------
 ;Pages
 
-  !insertmacro MUI_PAGE_LICENSE "License.txt"
+  !insertmacro MUI_PAGE_LICENSE "..\LICENSE.txt"
   !insertmacro MUI_PAGE_COMPONENTS
   !insertmacro MUI_PAGE_DIRECTORY
   !insertmacro MUI_PAGE_INSTFILES
@@ -65,11 +65,12 @@ Section "Install Files" InstallFiles
   ; Files
   File "..\build\windows\runner\Release\migrator.exe"
   File "..\build\windows\runner\Release\flutter_windows.dll"
+  File "..\build\windows\runner\Release\url_launcher_windows_plugin.dll"
   File /r "..\build\windows\runner\Release\data"
   File "deps\VC_redist.x64.exe"
 
   ; Install Visual Studio Runtime
-  ExecWait '"$INSTDIR\VC_redist.x64.exe" /quiet'
+  ExecWait '"$INSTDIR\VC_redist.x64.exe" /quiet /norestart'
   Delete "$INSTDIR\VC_redist.x64.exe"
 
   ;Store installation folder

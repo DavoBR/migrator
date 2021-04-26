@@ -1,62 +1,86 @@
 name: CI
 on:
   push:
-    branches: [ master ]
-    paths-ignore:
-      - '.vscode/**'
-      - '.github/**'
-      - '**.gitignore'
-      - '.metadata'
-      - '.README.md'
-  pull_request:
-    branches: [ master ]
-    paths-ignore:
-      - '.vscode/**'
-      - '.github/**'
-      - '**.gitignore'
-      - '.metadata'
-      - '.README.md'
+    branches:
+      - master 
 
-  # Allows you to run this workflow manually from the Actions tab
+  pull_request:
+    branches: 
+      - master
+  
   workflow_dispatch:
+    inputs:
+      bump:
+        description: 'bump type, major or minor or patch or empty string'
+        default: ''
+        required: true
+      dry_run:
+        description: 'dry run, true or false'
+        default: 'false'
+        required: false
+      draft:
+        description: 'draft, true or false'
+        default: 'true'
+        required: false
+      pre_release:
+        description: 'pre release, true or false'
+        default: 'false'
+        required: false
 jobs:
   build:
     runs-on: windows-latest
     steps:
-      - name: Prepare
-        id: 'vars'
-        env:
-          GITHUB_CONTEXT: ${{toJson(github)}}
-        shell: bash
-        run: |
-          echo ::set-output name=create_release::${{contains(github.ref, 'master')}}    
-          echo "$GITHUB_CONTEXT"
-
       - name: Checkout
         uses: actions/checkout@v2
 
-      - name: Setup Java
+      - name: Bump version 
+        uses: MeilCli/bump-release-action@v1
+        if: github.event_name == 'push'
+        id: bump
+        with:
+          config_path: '.github/bump.yml'
+          bump: ${{ github.event.inputs.bump }}
+          dry_run: ${{ github.event.inputs.dry_run }}
+          draft: ${{ github.event.inputs.draft }}
+          pre_release: ${{ github.event.inputs.pre_release }}
+
+      - name: Version
+        id: version
+        shell: bash
+        env:
+          NEXT_VERSION: ${{ steps.bump.outputs.next_version }}
+        run: |
+          if [ -z "$NEXT_VERSION" ] 
+          then
+            echo '::set-output name=next_version::0.0.0'
+          else
+            echo "::set-output name=next_version::$NEXT_VERSION"
+          fi 
+
+      - name: Update version in files
+        shell: bash
+        env:
+          NEXT_VERSION: ${{ steps.version.outputs.next_version }}
+        run: |
+          major=$(echo $NEXT_VERSION | cut -d '.' -f1)
+          minor=$(echo $NEXT_VERSION | cut -d '.' -f2)
+          patch=$(echo $NEXT_VERSION | cut -d '.' -f3)
+
+          sed -i "s/1,0,0/$major,$minor,$patch/g" ./windows/runner/Runner.rc
+          sed -i "s/1.0.0/$NEXT_VERSION/g" ./windows/runner/Runner.rc
+
+          sed -i "s/VERSIONMAJOR 1/VERSIONMAJOR $major/g" ./installer/script.nsi
+          sed -i "s/VERSIONMINOR 0/VERSIONMINOR $minor/g" ./installer/script.nsi
+          sed -i "s/VERSIONBUILD 0/VERSIONBUILD $patch/g" ./installer/script.nsi
+
+          sed -i "s/APP_VERSION = 'debug'/APP_VERSION = 'v$NEXT_VERSION'/g" ./lib/utils/constants.dart
+
+      - name: Setup java
         uses: actions/setup-java@v1
         with:
           java-version: '12.x'   
           
-      - name: Bump version and push tag
-        uses: mathieudutour/github-tag-action@v5
-        id: tag
-        with:
-          github_token: ${{secrets.GITHUB_TOKEN}}  
-          dry_run: ${{!contains(github.ref, 'master')}}
-          append_to_pre_release_tag: ${{github.head_ref}}
-          pre_release_branches: '^((master(?!$)).+|(?!master).+)$'
-
-      - name: Define version in file
-        id: version
-        env:
-          VERSION: ${{steps.tag.outputs.new_version}}
-          BRANCH_NAME: ${{github.head_ref}}
-        run: 'python ./.github/workflows/after_bump_version.py' 
-          
-      - name: Setup Flutter
+      - name: Setup flutter
         uses: subosito/flutter-action@v1
         with:
           channel: stable
@@ -67,62 +91,47 @@ jobs:
       #- run: flutter test
       - run: flutter build windows
 
-      - name: Upload portable artifact
-        uses: actions/upload-artifact@v2
-        with:
-          name: 'migrator-${{steps.version.outputs.long}}-win-x64'
-          path: ${{github.workspace}}/build/windows/runner/Release/
-
-      - name: Download NSIS Installer
+      - name: Download NSIS installer
         uses: carlosperate/download-file-action@v1.0.3
-        if: steps.vars.outputs.create_release == 'true'
         with:
           file-url: https://prdownloads.sourceforge.net/nsis/nsis-3.06.1-setup.exe?download
           file-name: nsis-setup.exe
           location: ${{github.workspace}}
 
       - name: Install NSIS 
-        if: steps.vars.outputs.create_release == 'true'
         run: ./nsis-setup.exe /S
 
-      - name: Download Visual C++ Runtimes
+      - name: Download visual C++ runtimes
         uses: carlosperate/download-file-action@v1.0.3
-        if: steps.vars.outputs.create_release == 'true'
         with:
           file-url: https://aka.ms/vs/16/release/vc_redist.x64.exe
           file-name: VC_redist.x64.exe
           location: ${{github.workspace}}\installer\deps
        
-      - name: Create Installer
+      - name: Create installer
         shell: cmd
         run: '"C:\Program Files (x86)\NSIS\makensis.exe" -V4 script.nsi'
-        if: steps.vars.outputs.create_release == 'true'
         working-directory: ./installer
 
-      - name: Extract installer info
-        id: installer
-        if: steps.vars.outputs.create_release == 'true'
-        run: 'python ../.github/workflows/after_create_installer.py' 
-        working-directory: ./installer
-
-      - name: Create Release
-        uses: actions/create-release@v1
-        id: create_release
-        if: steps.vars.outputs.create_release == 'true'
-        env:
-          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+      - name: Upload portable artifact
+        uses: actions/upload-artifact@v2
         with:
-          draft: true
-          tag_name: ${{steps.tag.outputs.new_tag}}
-          release_name: Release ${{steps.tag.outputs.new_tag}}
+          name: 'migrator-v${{ steps.version.outputs.next_version }}-win-x64'
+          path: ${{github.workspace}}/build/windows/runner/Release/
 
-      - name: Upload Release Asset
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: 'migrator-v${{ steps.version.outputs.next_version }}-win-x64-setup'
+          path: ${{github.workspace}}/installer/setup.exe
+
+      - name: Upload release asset
         uses: actions/upload-release-asset@v1
-        if: steps.vars.outputs.create_release == 'true'
+        if: github.event_name == 'push'  
         env:
-          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{steps.create_release.outputs.upload_url}} 
-          asset_path: './installer/${{steps.installer.outputs.name}}'
-          asset_name: ${{steps.installer.outputs.name}}
+          upload_url: ${{ fromJson(steps.bump.outputs.release).upload_url }} 
+          asset_path: '${{github.workspace}}/installer/setup.exe'
+          asset_name: 'CA_API_Gateway_Migrator_v${{ steps.bump.outputs.next_version }}.exe'
           asset_content_type: application/octet-stream
