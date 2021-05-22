@@ -63,7 +63,7 @@ class SelectConnectionsScreen extends HookWidget {
           label: 'Conexiones',
           onPressed: () => push(context, (_) => ConnectionsScreen()),
         ),
-        const SizedBox(width: 5.0),
+        const SizedBox(width: 10.0),
       ],
     );
   }

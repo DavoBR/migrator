@@ -32,13 +32,13 @@ class MigrateInScreen extends HookWidget {
           label: 'Probar',
           onPressed: () => _migrateIn(context, true),
         ),
-        SizedBox(width: 5.0),
+        SizedBox(width: 10.0),
         ActionButton(
           icon: CupertinoIcons.rocket,
           label: 'Desplegar',
           onPressed: () => _migrateIn(context, false),
         ),
-        SizedBox(width: 5.0),
+        SizedBox(width: 10.0),
         ActionButton(
           icon: Icons.code,
           label: 'Bundle',
@@ -49,6 +49,7 @@ class MigrateInScreen extends HookWidget {
             code: await context.read(migrateInProvider).buildBundleXml(),
           ),
         ),
+        SizedBox(width: 10.0),
       ],
     );
   }

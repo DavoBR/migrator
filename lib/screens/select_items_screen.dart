@@ -47,7 +47,8 @@ class SelectItemsScreen extends HookWidget {
           icon: Icons.download_outlined,
           label: 'Descargar (Migrate Out)',
           onPressed: () => push(context, (_) => MigrateOutScreen()),
-        )
+        ),
+        SizedBox(width: 10.0),
       ],
     );
   }

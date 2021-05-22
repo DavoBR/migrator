@@ -40,7 +40,7 @@ class MigrateOutScreen extends HookWidget {
             });
           },
         ),
-        SizedBox(width: 5.0),
+        SizedBox(width: 10.0),
         ActionButton(
           icon: Icons.code,
           label: 'Bundle',
@@ -55,6 +55,7 @@ class MigrateOutScreen extends HookWidget {
             });
           },
         ),
+        SizedBox(width: 10.0),
       ],
     );
   }

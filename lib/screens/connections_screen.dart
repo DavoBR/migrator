@@ -80,19 +80,19 @@ class ConnectionsScreen extends HookWidget {
           label: 'Nuevo',
           onPressed: () => _select(context, null),
         ),
-        const SizedBox(width: 5.0),
+        const SizedBox(width: 10.0),
         ActionButton(
           icon: Icons.save,
           label: 'Guardar',
           onPressed: () => _save(context),
         ),
-        const SizedBox(width: 5.0),
+        const SizedBox(width: 10.0),
         ActionButton(
           icon: CupertinoIcons.lab_flask,
           label: 'Probar',
           onPressed: () => _test(context),
         ),
-        const SizedBox(width: 5.0),
+        const SizedBox(width: 10.0),
       ],
     );
   }
