@@ -76,7 +76,7 @@ class MigrateOutScreen extends HookWidget {
             loading: () => Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text('Descargando bundle de los objetos seleccionados...'),
+                Text('Descargando objetos seleccionados y sus dependencias...'),
                 SizedBox(height: 20.0),
                 LinearProgressIndicator(),
               ],
@@ -84,7 +84,7 @@ class MigrateOutScreen extends HookWidget {
             error: (error, st) => Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text('Error descargando el bundle'),
+                Text('Error en la descarga de objetos'),
                 SizedBox(height: 20.0),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(

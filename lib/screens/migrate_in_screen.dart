@@ -158,7 +158,7 @@ class MigrateInScreen extends HookWidget {
     if (!test) {
       alert(
         context,
-        title: Text('Migración completada a la ambiente $targetConnection'),
+        title: Text('Migración completada al ambiente $targetConnection'),
       );
     }
   }
