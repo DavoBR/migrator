@@ -14,6 +14,9 @@ class App extends StatelessWidget {
         accentColor: Colors.green[600],
         dividerColor: Color.fromRGBO(58, 66, 86, 1.0),
         backgroundColor: Colors.white,
+        colorScheme: ColorScheme.light(
+          primary: Colors.green,
+        ),
       ),
       home: SafeArea(child: CheckVersionScreen()),
     );
