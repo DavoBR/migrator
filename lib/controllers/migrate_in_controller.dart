@@ -33,9 +33,8 @@ class MigrateInController
 
     final keyPassPhrase = _read(migratePassPhraseProvider).state;
     final bundleXml = await buildBundleXml();
-    final resultTypeCtrl = _read(migrateResultTypeProvider);
 
-    resultTypeCtrl.state = MigrateResultType.none;
+    _read(isTestMigrationProvider).state = test;
 
     final result = await _restman.migrateIn(
       _connection,
@@ -44,9 +43,6 @@ class MigrateInController
       versionComment: versionComment,
       keyPassPhrase: keyPassPhrase,
     );
-
-    resultTypeCtrl.state =
-        test ? MigrateResultType.test : MigrateResultType.live;
 
     state = AsyncValue.data(result);
   }

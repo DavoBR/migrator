@@ -56,31 +56,25 @@ class MigrateInScreen extends HookWidget {
 
   Widget _buildBody() {
     final context = useContext();
-    final migrateResult = useProvider(migrateInProvider.state);
-    final migrateResultType = useProvider(migrateResultTypeProvider).state;
-    final testLoading = migrateResultType == MigrateResultType.none;
-    final isTestResult = migrateResultType == MigrateResultType.test;
+    final migrateResultState = useProvider(migrateInProvider.state);
+    final isTestMigration = useProvider(isTestMigrationProvider).state;
 
     return Column(
       children: [
         SelectedConnectionsBar(),
         Expanded(
-          child: migrateResult.when(
-            data: (_) => MigrateScreenBody(
-              headersHook: (labels) {
-                if (isTestResult) {
-                  labels.add('Resultado Prueba');
-                } else {
-                  labels.add('Resultado');
-                }
-              },
+          child: migrateResultState.when(
+            data: (result) => MigrateScreenBody(
+              headersHook: (labels) => labels.add(
+                result.isTest ? 'Resultado Prueba' : 'Resultado',
+              ),
               rowsHook: (cells, item) => cells.add(MappingResultCell(item)),
             ),
             loading: () => Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  testLoading
+                  isTestMigration
                       ? 'Prueba de migración de objetos en curso...'
                       : 'Migración de objetos en curso...',
                 ),
@@ -92,7 +86,7 @@ class MigrateInScreen extends HookWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  testLoading
+                  isTestMigration
                       ? 'Error en la migración de prueba'
                       : 'Error en la migración',
                 ),
@@ -101,10 +95,7 @@ class MigrateInScreen extends HookWidget {
                   style: ElevatedButton.styleFrom(
                     primary: Theme.of(context).primaryColor,
                   ),
-                  onPressed: () => _migrateIn(
-                    context,
-                    isTestResult ? false : true,
-                  ),
+                  onPressed: () => _migrateIn(context, isTestMigration),
                   child: Text('Reintentar'),
                 ),
                 SizedBox(height: 20.0),
@@ -123,10 +114,11 @@ class MigrateInScreen extends HookWidget {
     String versionComment = '';
 
     final targetConnection = context.read(targetConnectionProvider).state;
-    final migrateResultType = context.read(migrateResultTypeProvider).state;
+    final migrateInResult = context.read(migrateInProvider.state).data?.value;
 
     if (!test) {
-      if (migrateResultType != MigrateResultType.test) {
+      // se debe ejecutar un test antes de desplegar al ambiente
+      if (migrateInResult == null || !migrateInResult.isTest) {
         alert(
           context,
           title: Text('Volver hacer la prueba'),
