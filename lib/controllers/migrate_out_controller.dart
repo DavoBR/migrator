@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:uuid/uuid.dart';
 import 'package:collection/collection.dart';
@@ -168,5 +169,16 @@ class MigrateOutController extends GetxController {
     }
 
     return folder;
+  }
+
+  void copyBundleToClipboard() {
+    Clipboard.setData(
+      ClipboardData(text: bundle.value.element.toXmlString(pretty: true)),
+    );
+
+    Get.snackbar(
+      'Bundle copiado',
+      'Se ha copiado el bundle descargado al portapapeles',
+    );
   }
 }

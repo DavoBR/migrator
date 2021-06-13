@@ -37,11 +37,7 @@ class MigrateInPage extends StatelessWidget {
         ActionButton(
           icon: Icons.code,
           label: 'Bundle',
-          onPressed: () async => showHighlight(
-            title: Text('Bundle - MigrateIn'),
-            language: 'xml',
-            code: await _ctrl.buildBundleXml(),
-          ),
+          onPressed: () => _ctrl.copyBundleToClipboard(),
         ),
       ],
     );

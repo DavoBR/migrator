@@ -1,4 +1,5 @@
 import 'package:collection/collection.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:xml/xml.dart';
 
@@ -26,7 +27,7 @@ class MigrateInController extends GetxController {
   Future<void> migrateIn(bool test, String versionComment) async {
     try {
       migrateInStatus.value = RxStatus.loading();
-      final bundleXml = await buildBundleXml();
+      final bundleXml = await _buildBundleXml();
 
       isTesting.value = test;
 
@@ -45,7 +46,7 @@ class MigrateInController extends GetxController {
     }
   }
 
-  Future<String> buildBundleXml() async {
+  Future<String> _buildBundleXml({bool pretty: false}) async {
     final bundle = _migrateOutCtrl.bundle.value;
 
     final bundleElement = bundle.element
@@ -67,7 +68,7 @@ class MigrateInController extends GetxController {
     // actualizar los valores de los cwp mopdificados
     _configureClusterPropValues(bundleElement);
 
-    return bundleElement.toXmlString();
+    return bundleElement.toXmlString(pretty: pretty);
   }
 
   Future<void> _configureMappings(XmlElement bundleElement) async {
@@ -189,5 +190,16 @@ class MigrateInController extends GetxController {
     if (mappingAction != defaultAction) {
       mappingElement.setAttribute('action', mappingAction);
     }
+  }
+
+  Future<void> copyBundleToClipboard() async {
+    Clipboard.setData(
+      ClipboardData(text: await _buildBundleXml(pretty: true)),
+    );
+
+    Get.snackbar(
+      'Bundle copiado',
+      'Se ha copiado el bundle de la migración al portapapeles',
+    );
   }
 }

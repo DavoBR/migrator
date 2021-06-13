@@ -1,7 +1,6 @@
 export 'constants.dart';
 export 'crypto.dart';
 export 'extensions.dart';
-export 'highlight.dart';
 export 'http.dart';
 export 'navigator.dart';
 export 'snackbar.dart';

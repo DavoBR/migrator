@@ -33,13 +33,7 @@ class MigrateOutPage extends StatelessWidget {
         ActionButton(
           icon: Icons.code,
           label: 'Bundle',
-          onPressed: () {
-            showHighlight(
-              title: Text('Bundle - MigrateOut'),
-              language: 'xml',
-              code: _ctrl.bundle.value.element.toXmlString(pretty: true),
-            );
-          },
+          onPressed: () => _ctrl.copyBundleToClipboard(),
         ),
       ],
     );
