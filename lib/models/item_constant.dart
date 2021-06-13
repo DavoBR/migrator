@@ -1,3 +1,5 @@
+import 'package:migrator/models/models.dart';
+
 import 'item.dart';
 
 class ItemConstant {
@@ -12,6 +14,25 @@ class ItemConstant {
     ItemType.policy: const ItemConstant('Politicas', 'policies'),
   };
 
-  static ItemConstant of(ItemType type) =>
-      _constants[type] ?? ItemConstant("", "");
+  factory ItemConstant.of(ItemType itemType) {
+    if (!_constants.containsKey(itemType)) {
+      throw 'The item type $itemType is not defined in ItemConstant';
+    }
+
+    return _constants[itemType]!;
+  }
+
+  static ItemConstant ofType<T>() {
+    final type = T.toString();
+    switch (type) {
+      case 'FolderItem':
+        return ItemConstant.of(ItemType.folder);
+      case 'ServiceItem':
+        return ItemConstant.of(ItemType.service);
+      case 'PolicyItem':
+        return ItemConstant.of(ItemType.policy);
+      default:
+        throw 'The type $type is not defined in ItemConstant';
+    }
+  }
 }

@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
-import 'screens/check_version_screen.dart';
+import 'pages/version_check_page.dart';
 
 class App extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return GetMaterialApp(
       title: 'Migrator for CA API Gateway',
       theme: ThemeData(
         brightness: Brightness.light,
@@ -18,7 +19,7 @@ class App extends StatelessWidget {
           primary: Colors.green,
         ),
       ),
-      home: SafeArea(child: CheckVersionScreen()),
+      home: SafeArea(child: VersionCheckPage()),
     );
   }
 }

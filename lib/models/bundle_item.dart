@@ -28,4 +28,8 @@ class BundleItem extends Item {
           .where((x) => x.srcId.isNotEmpty)
           .toList() ??
       [];
+
+  factory BundleItem.empty() {
+    return BundleItem(Item.empty().element);
+  }
 }

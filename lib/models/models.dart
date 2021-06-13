@@ -12,3 +12,4 @@ export 'policy_item.dart';
 export 'service_item.dart';
 export 'mapping_config.dart';
 export 'cluster_property_item.dart';
+export 'git_release_model.dart';

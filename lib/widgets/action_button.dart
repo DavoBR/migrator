@@ -10,10 +10,13 @@ class ActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return TextButton.icon(
-      icon: Icon(icon).iconColor(Colors.white).semanticsLabel(label),
-      label: Text(label).textColor(Colors.white),
-      onPressed: onPressed,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10.0),
+      child: TextButton.icon(
+        icon: Icon(icon).iconColor(Colors.white).semanticsLabel(label),
+        label: Text(label).textColor(Colors.white),
+        onPressed: onPressed,
+      ),
     );
   }
 }

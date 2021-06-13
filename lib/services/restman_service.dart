@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:get/get.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart';
 import 'package:xml/xml.dart';
@@ -9,17 +10,16 @@ import 'package:xml/xml.dart';
 import 'package:migrator/utils/utils.dart';
 import 'package:migrator/models/models.dart';
 
-class RestmanService {
+class RestmanService extends GetxService {
   RestmanService({this.useCache = false});
 
   final bool useCache;
 
-  Future<List<ItemInFolder>> fetchItems(
-    Connection connection,
-    ItemType type, {
+  Future<List<T>> fetchItems<T extends Item>(
+    Connection connection, {
     String? parentFolderId,
   }) async {
-    final resource = ItemConstant.of(type).resource;
+    final resource = ItemConstant.ofType<T>().resource;
     final cacheKey =
         resource + (parentFolderId != null ? '_$parentFolderId' : '');
 
@@ -32,18 +32,16 @@ class RestmanService {
       );
     });
 
-    return ItemFactory.listFromXml(xml);
+    return ItemFactory.listFromXml<T>(xml);
   }
 
-  Future<ItemWithId?> fetchItemById(
+  Future<T> fetchItemById<T extends ItemWithId>(
     Connection connection,
-    ItemType type,
     String id,
   ) async {
-    final resource = ItemConstant.of(type).resource;
+    final resource = ItemConstant.ofType<T>().resource;
     final cacheKey = '${resource}_$id';
-
-    String? xml = await _fromCache(connection, cacheKey, () async {
+    final xml = await _fromCache(connection, cacheKey, () async {
       return await _request(
         connection,
         'GET',
@@ -51,12 +49,10 @@ class RestmanService {
       );
     });
 
-    if (xml == null) return null;
-
-    return ItemFactory.fromXml(xml);
+    return ItemFactory.fromXml<T>(xml);
   }
 
-  Future<BundleItem?> migrateOut(
+  Future<BundleItem> migrateOut(
     Connection connection, {
     List<String> services = const [],
     List<String> policies = const [],
@@ -65,7 +61,7 @@ class RestmanService {
   }) async {
     final resource = 'bundle';
     final cacheKey = 'migrateout';
-    String? xml = await _fromCache(connection, cacheKey, () async {
+    final xml = await _fromCache(connection, cacheKey, () async {
       return await _request(
         connection,
         'GET',
@@ -80,8 +76,6 @@ class RestmanService {
         headers: {'L7-key-passphrase': keyPassPhrase},
       );
     });
-
-    if (xml == null) return null;
 
     return ItemFactory.fromXml<BundleItem>(xml);
   }

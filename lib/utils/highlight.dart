@@ -2,20 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_highlight/flutter_highlight.dart';
 import 'package:flutter_highlight/themes/github.dart';
+import 'package:get/get.dart';
 import 'package:styled_widget/styled_widget.dart';
 
-Future<void> showHighlight(
-  BuildContext context, {
+Future<void> showHighlight({
   required Widget title,
   required String code,
   String language = 'plaintext',
 }) async {
-  final primaryColor = Theme.of(context).primaryColor;
+  final primaryColor = Get.theme.primaryColor;
 
-  await showDialog(
-    context: context,
-    barrierDismissible: true,
-    builder: (_) => AlertDialog(
+  await Get.dialog(
+    AlertDialog(
       title: title,
       titlePadding: const EdgeInsets.all(4),
       contentPadding: const EdgeInsets.all(0),
@@ -42,9 +40,10 @@ Future<void> showHighlight(
         TextButton.icon(
           icon: Icon(Icons.close, color: primaryColor, size: 16.0),
           label: Text('Cerrar').textColor(primaryColor),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => Get.back(),
         )
       ],
     ),
+    barrierDismissible: true,
   );
 }

@@ -1,69 +1,96 @@
 import 'dart:convert';
 
-import 'package:tuple/tuple.dart';
+import 'package:get/get.dart';
 import 'package:uuid/uuid.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:collection/collection.dart';
 
+import 'package:migrator/utils/utils.dart';
 import 'package:migrator/models/models.dart';
-import 'package:migrator/providers/providers.dart';
 import 'package:migrator/services/services.dart';
+import 'package:migrator/controllers/controllers.dart';
 
-class MigrateOutController extends StateNotifier<AsyncValue<BundleItem>> {
-  Reader _read;
+class MigrateOutController extends GetxController {
+  final _restman = Get.put(RestmanService());
+  final _connCtrl = Get.find<ConnectionsSelectionController>();
+  final _itemsCtrl = Get.find<ItemsSelectionController>();
 
-  RestmanService get _restman => _read(restmanServiceProvider);
+  final migrateOutStatus = RxStatus.empty().obs;
+  final bundle = BundleItem.empty().obs;
+  final mappingActions = Map<String, Rx<MappingAction>>();
+  final mappingProps = Map<String, RxMap<String, Object>>();
+  final cwpValues = Map<String, RxString>();
 
-  Connection get _connection {
-    final connection = _read(sourceConnectionProvider).state;
+  Iterable<ItemMapping> get selectedItemsMapping => bundle.value.mappings
+      .where((mapping) => _itemsCtrl.selectedIds.contains(mapping.srcId));
 
-    if (connection == null) {
-      final error = Exception('No se ha selecionado una conexión origen');
-      state = AsyncValue.error(error);
-      throw error;
+  Iterable<ItemMapping> get dependenciesMapping => bundle.value.mappings
+      .where((mapping) => !_itemsCtrl.selectedIds.contains(mapping.srcId));
+
+  String keyPassPhrase = "";
+
+  @override
+  void onInit() {
+    if (bundle.value.isEmpty) {
+      migrateOut();
     }
-
-    return connection;
+    super.onInit();
   }
 
-  MigrateOutController(this._read) : super(AsyncValue.loading());
+  @override
+  void onClose() {
+    migrateOutStatus.value = RxStatus.empty();
+    bundle.value = BundleItem.empty();
+    mappingActions.clear();
+    mappingProps.clear();
+    cwpValues.clear();
+    keyPassPhrase = "";
+  }
 
   Future<void> migrateOut() async {
-    state = AsyncValue.loading();
-
-    await Future.delayed(Duration(seconds: 10));
-
-    final selectedItems = _read(selectedItemsProvider);
-    final serviceItems = selectedItems.where((i) => i.type == ItemType.service);
-    final policyItems = selectedItems.where((i) => i.type == ItemType.policy);
-    final keyPassPhrase = base64.encode(utf8.encode(Uuid().v4()));
-
-    _read(migratePassPhraseProvider).state = keyPassPhrase;
-
     try {
+      migrateOutStatus.value = RxStatus.loading();
+      this.bundle.value = BundleItem.empty();
+
+      final serviceItemIds = _itemsCtrl.selectedItems
+          .where((i) => i.type == ItemType.service)
+          .map((e) => e.id)
+          .toList();
+      final policyItemIds = _itemsCtrl.selectedItems
+          .where((i) => i.type == ItemType.policy)
+          .map((e) => e.id)
+          .toList();
+
+      keyPassPhrase = base64.encode(utf8.encode(Uuid().v4()));
+
       final bundle = await _restman.migrateOut(
-        _connection,
-        services: serviceItems.map((e) => e.id).toList(),
-        policies: policyItems.map((e) => e.id).toList(),
+        _connCtrl.source.value,
+        services: serviceItemIds,
+        policies: policyItemIds,
         keyPassPhrase: keyPassPhrase,
       );
 
-      if (bundle == null) throw Exception('bundle is null');
+      if (bundle.isEmpty) throw Exception('bundle is empty');
 
       await _setCustomMappings(bundle);
 
-      state = AsyncValue.data(bundle);
-    } on Exception catch (error, st) {
-      state = AsyncValue.error(error, st);
+      for (var cwp in bundle.items.whereType<ClusterPropertyItem>()) {
+        cwpValues[cwp.id] = cwp.value.obs;
+      }
+
+      this.bundle.value = bundle;
+      migrateOutStatus.value = RxStatus.success();
+    } catch (error, st) {
+      logError(error, stackTrace: st, message: 'MigrateOut');
+      migrateOutStatus.value = RxStatus.error(error.toString());
     }
   }
 
   Future<void> _setCustomMappings(BundleItem bundle) async {
-    final selectedIds = _read(selectedItemIdsProvider.state);
     for (var mapping in bundle.mappings) {
       var action = mapping.action;
       final props = Map<String, Object>();
 
-      if (selectedIds.contains(mapping.srcId)) {
+      if (_itemsCtrl.selectedIds.contains(mapping.srcId)) {
         // marcar los objetos selecionados para crear o actualizar
         action = MappingAction.newOrUpdate;
       } else {
@@ -102,25 +129,44 @@ class MigrateOutController extends StateNotifier<AsyncValue<BundleItem>> {
           break;
       }
 
-      _read(mappingActionFamily(mapping.srcId)).state = action;
-      _read(mappingPropsFamily(mapping.srcId)).state = props;
+      mappingActions[mapping.srcId] = action.obs;
+      mappingProps[mapping.srcId] = props.obs;
     }
   }
 
   Future<String> _buildFolderPath(String itemId) async {
+    log('Building path for folder: $itemId');
     final pathParts = [];
-    var item = await _read(itemFamily(Tuple2(itemId, ItemType.folder)).future)
-        as FolderItem?;
+    var item = await _fetchFolder(itemId);
 
-    while (item != null && item.folderId.isNotEmpty) {
+    while (!item.isEmpty && item.folderId.isNotEmpty) {
       pathParts.add(item.name);
-      item = await _read(
-        itemFamily(Tuple2(item.folderId, ItemType.folder)).future,
-      ) as FolderItem?;
+      item = await _fetchFolder(item.folderId);
     }
 
     final path = '/${pathParts.reversed.join('/')}';
 
+    log('Folder path for $itemId: $path');
+
     return path;
+  }
+
+  Future<FolderItem> _fetchFolder(String id) async {
+    log('Find folder $id in local list');
+    var folder = _itemsCtrl.items
+        .whereType<FolderItem>()
+        .firstWhereOrNull((item) => item.id == id);
+
+    if (folder == null) {
+      log('Fetching folder $id from restman');
+      folder = await _restman.fetchItemById<FolderItem>(
+        _connCtrl.source.value,
+        id,
+      );
+
+      _itemsCtrl.items.add(folder);
+    }
+
+    return folder;
   }
 }

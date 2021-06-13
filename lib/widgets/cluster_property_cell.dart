@@ -1,59 +1,59 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:get/get.dart';
 
-import 'package:migrator/providers/providers.dart';
+import 'package:migrator/controllers/controllers.dart';
 import 'package:migrator/utils/utils.dart';
 import 'package:migrator/models/models.dart';
 
-class ClusterPropertyCell extends HookWidget {
-  final ClusterPropertyItem? cwp;
+const int _MAX_LENGTH = 45;
+
+class ClusterPropertyCell extends StatelessWidget {
+  final _migrateOutCtrl = Get.find<MigrateOutController>();
+
+  final ClusterPropertyItem cwp;
   final bool editable;
 
   ClusterPropertyCell(this.cwp, this.editable);
 
   @override
   Widget build(BuildContext context) {
-    if (cwp == null) return SizedBox();
+    if (cwp.isEmpty) return SizedBox();
 
-    final cwpValueCtrl = useProvider(cwpValueFamily(cwp!.id));
-    final value = cwpValueCtrl.state ?? cwp!.value;
-    final maxLength = 45;
-    final isOverflow = value.length > maxLength;
+    final value = _migrateOutCtrl.cwpValues[cwp.id]!;
 
-    return Row(
-      children: [
-        Text(isOverflow ? value.substring(0, maxLength) + '...' : value),
-        SizedBox(width: 5.0),
-        IconButton(
-          icon: Icon(editable ? Icons.edit : Icons.loupe),
-          iconSize: 14.0,
-          color: Colors.green,
-          tooltip: editable ? 'Editar valor antes de desplegar' : '',
-          padding: EdgeInsets.zero,
-          constraints: BoxConstraints(),
-          onPressed: () async {
-            if (editable) {
-              final newValue = await prompt(
-                context,
-                title: Text(cwp!.name),
-                initialValue: value,
-                maxLines: 6,
-              );
-
-              if (newValue != null) {
-                cwpValueCtrl.state = newValue;
+    return Obx(
+      () => Row(
+        children: [
+          Text(value.value.length > _MAX_LENGTH
+              ? value.substring(0, _MAX_LENGTH) + '...'
+              : value.toString()),
+          SizedBox(width: 5.0),
+          IconButton(
+            icon: Icon(editable ? Icons.edit : Icons.loupe),
+            iconSize: 14.0,
+            color: Colors.green,
+            tooltip: editable ? 'Editar valor antes de desplegar' : '',
+            padding: EdgeInsets.zero,
+            constraints: BoxConstraints(),
+            onPressed: () async {
+              if (editable) {
+                await prompt<String>(
+                  title: cwp.name,
+                  initialValue: value.value,
+                  maxLines: 6,
+                  onConfirm: (newValue) {
+                    if (newValue != null) {
+                      value.value = newValue;
+                    }
+                  },
+                );
+              } else {
+                await alert(title: cwp.name, content: Text(value.toString()));
               }
-            } else {
-              await alert(
-                context,
-                title: Text(cwp!.name),
-                content: Text(value),
-              );
-            }
-          },
-        ),
-      ],
+            },
+          ),
+        ],
+      ),
     );
   }
 }

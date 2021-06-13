@@ -1,48 +1,57 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:get/get.dart';
 
+import 'package:migrator/controllers/controllers.dart';
 import 'package:migrator/utils/utils.dart';
 import 'package:migrator/models/models.dart';
-import 'package:migrator/providers/providers.dart';
 
-class ActionMappingCell extends HookWidget {
-  final ItemWithId? item;
+class ActionMappingCell extends StatelessWidget {
+  final _migrateOutCtrl = Get.find<MigrateOutController>();
+
+  final ItemWithId item;
   final bool editable;
+
+  get _mappingAction => _migrateOutCtrl.mappingActions[item.id]!;
 
   ActionMappingCell(this.item, this.editable);
 
   @override
   Widget build(BuildContext context) {
-    if (item == null) return Text('Unknown');
+    if (item.isEmpty) return Text('Unknown');
 
-    final mappingActionCtrl = useProvider(mappingActionFamily(item!.id));
+    return editable ? _buildEditable() : _buildNoEditable();
+  }
 
-    if (!editable) {
-      return Text(
-        mappingActionCtrl.state.toString().split('.')[1].toPascalCase(),
-      );
-    }
+  Widget _buildNoEditable() {
+    return Obx(
+      () => Text(
+        _mappingAction.toString().split('.')[1].toPascalCase(),
+      ),
+    );
+  }
 
+  Widget _buildEditable() {
     return SizedBox(
       height: 30.0,
-      child: DropdownButton<MappingAction>(
-        value: mappingActionCtrl.state,
-        underline: SizedBox(),
-        onChanged: (action) {
-          if (action != null) {
-            mappingActionCtrl.state = action;
-          }
-        },
-        items: MappingAction.values
-            .where((value) => value != MappingAction.unknown)
-            .map(
-              (value) => DropdownMenuItem(
-                value: value,
-                child: Text(value.toString().split('.')[1].toPascalCase()),
-              ),
-            )
-            .toList(),
+      child: Obx(
+        () => DropdownButton<MappingAction>(
+          value: _mappingAction.value,
+          underline: SizedBox(),
+          onChanged: (action) {
+            if (action != null) {
+              _mappingAction.value = action;
+            }
+          },
+          items: MappingAction.values
+              .where((value) => value != MappingAction.unknown)
+              .map(
+                (value) => DropdownMenuItem(
+                  value: value,
+                  child: Text(value.toString().split('.')[1].toPascalCase()),
+                ),
+              )
+              .toList(),
+        ),
       ),
     );
   }

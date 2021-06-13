@@ -1,5 +1,9 @@
 export 'action_button.dart';
+export 'action_mapping_cell.dart';
+export 'case_when.dart';
+export 'cluster_property_cell.dart';
 export 'form_builder_file_field.dart';
+export 'mapping_result_cell.dart';
 export 'migrate_screen_body.dart';
 export 'node_icon.dart';
 export 'selected_connections_bar.dart';

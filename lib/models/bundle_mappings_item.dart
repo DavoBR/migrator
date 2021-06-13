@@ -30,4 +30,8 @@ class BundleMappingsItem extends Item {
             .toList() ??
         [];
   }
+
+  factory BundleMappingsItem.empty() {
+    return BundleMappingsItem(Item.empty().element);
+  }
 }

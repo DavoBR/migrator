@@ -6,4 +6,8 @@ class ItemWithId extends Item {
   ItemWithId(XmlElement element) : super(element);
 
   String get id => element.getElement('l7:Id')?.text ?? '';
+
+  factory ItemWithId.empty() {
+    return ItemWithId(Item.empty().element);
+  }
 }

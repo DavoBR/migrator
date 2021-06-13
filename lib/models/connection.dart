@@ -20,15 +20,18 @@ class Connection {
     this.certificate,
   });
 
-  Connection.fromJson(Map<String, dynamic> json)
-      : id = json['id'] ?? '',
-        name = json['name'],
-        host = json['host'],
-        username = json['username'],
-        password = decrypt(json['password'], throwError: false),
-        certificate = (json['certificate'] ?? '').isNotEmpty
-            ? base64Decode(json['certificate'])
-            : null;
+  factory Connection.fromJson(Map<String, dynamic> json) {
+    return Connection(
+      id: json['id'] ?? '',
+      name: json['name'],
+      host: json['host'],
+      username: json['username'],
+      password: decrypt(json['password'], throwError: false),
+      certificate: (json['certificate'] ?? '').isNotEmpty
+          ? base64Decode(json['certificate'])
+          : null,
+    );
+  }
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -43,5 +46,11 @@ class Connection {
   @override
   String toString() {
     return '$name [$host]';
+  }
+
+  bool get isEmpty => id.isEmpty && name.isEmpty && host.isEmpty;
+
+  factory Connection.empty() {
+    return Connection(id: '', name: '', host: '');
   }
 }
