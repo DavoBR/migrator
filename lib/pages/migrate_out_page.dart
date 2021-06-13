@@ -28,7 +28,21 @@ class MigrateOutPage extends StatelessWidget {
         ActionButton(
           icon: CupertinoIcons.lab_flask,
           label: 'Probar Despliegue',
-          onPressed: () => Get.to(() => MigrateInPage()),
+          onPressed: () {
+            if (_ctrl.migrateOutStatus.value.isLoading) {
+              Get.snackbar(
+                '⌛ Descarga en curso',
+                'Espera a que termine la descarga de objetos',
+              );
+            } else if (_ctrl.migrateOutStatus.value.isError) {
+              Get.snackbar(
+                'No se puede continuar',
+                'Corrige el error he intentalo de nuevo',
+              );
+            } else {
+              Get.to(() => MigrateInPage());
+            }
+          },
         ),
         ActionButton(
           icon: Icons.code,

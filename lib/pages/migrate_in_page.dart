@@ -100,6 +100,20 @@ class MigrateInPage extends StatelessWidget {
   }
 
   void _migrateIn(bool test) async {
+    if (_ctrl.migrateInStatus.value.isLoading) {
+      Get.snackbar(
+        '⌛ Proceso en curso',
+        'Espera a que termine el proceso',
+      );
+      return;
+    } else if (_ctrl.migrateInStatus.value.isError) {
+      Get.snackbar(
+        'No se puede continuar',
+        'Corrige el error he intentalo de nuevo',
+      );
+      return;
+    }
+
     String? versionComment = '';
 
     final targetConnection = _connCtrl.target.value;
@@ -108,11 +122,9 @@ class MigrateInPage extends StatelessWidget {
     if (!test) {
       // se debe ejecutar un test antes de desplegar al ambiente
       if (migrateInResult.isEmpty || !migrateInResult.isTest) {
-        alert(
-          title: 'Volver hacer la prueba',
-          content: Text(
-            'Antes de desplegar volver hacer la prueba y verificar los resultados.',
-          ),
+        Get.snackbar(
+          'Volver hacer la prueba',
+          'Antes de desplegar volver hacer la prueba y verificar los resultados.',
         );
         return;
       }

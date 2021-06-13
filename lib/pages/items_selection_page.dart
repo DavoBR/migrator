@@ -38,7 +38,16 @@ class ItemsSelectionPage extends StatelessWidget {
         ActionButton(
           icon: Icons.download_outlined,
           label: 'Descargar (Migrate Out)',
-          onPressed: () => Get.to(() => MigrateOutPage()),
+          onPressed: () {
+            if (_ctrl.selectedIds.length == 0) {
+              Get.snackbar(
+                'No se ha selecionado ningun objeto',
+                'Primero debes selecionar los objetos a desplegar',
+              );
+            } else {
+              Get.to(() => MigrateOutPage());
+            }
+          },
         )
       ],
     );
