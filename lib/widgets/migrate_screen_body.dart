@@ -17,18 +17,15 @@ class MigrateScreenBody extends StatelessWidget {
   final void Function(List<Widget> cells, ItemWithId item)? rowsHook;
   final bool mappingActionEditable;
   final bool cwpEditable;
+  final Rx<BundleMappingsItem>? mappingResult;
 
   MigrateScreenBody({
     this.mappingActionEditable = false,
     this.cwpEditable = false,
     this.headersHook,
     this.rowsHook,
+    this.mappingResult,
   });
-
-  final Function(List<String> labels)? headersHook;
-  final Function(List<Widget> cells, ItemWithId item)? rowsHook;
-  final bool mappingActionEditable;
-  final bool cwpEditable;
 
   @override
   Widget build(BuildContext context) {
@@ -43,15 +40,57 @@ class MigrateScreenBody extends StatelessWidget {
     );
   }
 
+  Widget _buildConflictsCount(bool Function(ItemMapping) test) {
+    if (mappingResult == null) return SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(left: 8.0),
+      child: Obx(
+        () {
+          final conflictsCount = mappingResult!.value.mappings
+              .where((m) => m.rawErrorType.isNotEmpty && test(m))
+              .length;
+
+          if (conflictsCount == 0) return SizedBox.shrink();
+
+          return Text(
+            '$conflictsCount conflicto${conflictsCount > 1 ? 's' : ''}',
+            style: TextStyle(
+              color: conflictsCount == 0 ? Colors.green : Colors.red,
+              fontStyle: FontStyle.italic,
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   Widget _buildTabBar() {
     return TabBar(
       labelPadding: const EdgeInsets.all(10.0),
       labelColor: Get.theme.primaryColor,
       labelStyle: TextStyle(fontWeight: FontWeight.bold),
       tabs: [
-        Text('Servicios y Politicas'),
-        Text('Propiedades'),
-        Text('Dependencias'),
+        Row(children: [
+          Text('Servicios y Politicas'),
+          _buildConflictsCount(
+            (m) => m.type == ItemType.service || m.type == ItemType.policy,
+          )
+        ]),
+        Row(children: [
+          Text('Propiedades'),
+          _buildConflictsCount((m) => (m.type == ItemType.clusterProperty))
+        ]),
+        Row(children: [
+          Text('Dependencias'),
+          _buildConflictsCount(
+            (m) =>
+                m.type != ItemType.service &&
+                m.type != ItemType.policy &&
+                m.type != ItemType.clusterProperty &&
+                m.rawErrorType.isNotEmpty,
+          ),
+        ]),
       ],
     );
   }

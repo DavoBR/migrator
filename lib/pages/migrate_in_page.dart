@@ -51,6 +51,7 @@ class MigrateInPage extends StatelessWidget {
           child: Obx(
             () => _ctrl.migrateInStatus.value.when(
               success: () => MigrateScreenBody(
+                mappingResult: _ctrl.mappingResult,
                 headersHook: (cells) => cells.add(
                   Obx(
                     () => Text(
