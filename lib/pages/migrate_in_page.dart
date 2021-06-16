@@ -51,10 +51,18 @@ class MigrateInPage extends StatelessWidget {
           child: Obx(
             () => _ctrl.migrateInStatus.value.when(
               success: () => MigrateScreenBody(
-                headersHook: (labels) => labels.add(
-                  _ctrl.mappingResult.value.isTest
-                      ? 'Resultado Prueba'
-                      : 'Resultado',
+                headersHook: (cells) => cells.add(
+                  Obx(
+                    () => Text(
+                      _ctrl.mappingResult.value.isTest
+                          ? 'Resultado Prueba'
+                          : 'Resultado',
+                      style: TextStyle(
+                        color: Colors.orange,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
                 ),
                 rowsHook: (cells, item) => cells.add(MappingResultCell(item)),
               ),

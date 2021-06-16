@@ -13,6 +13,11 @@ class MigrateScreenBody extends StatelessWidget {
   final _itemsCtrl = Get.find<ItemsSelectionController>();
   final _migrateOutCtrl = Get.find<MigrateOutController>();
 
+  final void Function(List<Widget> cells)? headersHook;
+  final void Function(List<Widget> cells, ItemWithId item)? rowsHook;
+  final bool mappingActionEditable;
+  final bool cwpEditable;
+
   MigrateScreenBody({
     this.mappingActionEditable = false,
     this.cwpEditable = false,
@@ -93,12 +98,16 @@ class MigrateScreenBody extends StatelessWidget {
   }
 
   TableRow _buildTableHeader(bool isForCwp) {
-    final labels = ['Nombre', (isForCwp ? 'Valor' : 'Tipo'), 'Acción'];
-    if (headersHook != null) headersHook!(labels);
-    final headers = labels
-        .map((text) => Text(text).fontSize(16.0).fontWeight(FontWeight.bold));
+    final style = TextStyle(fontSize: 16.0, fontWeight: FontWeight.bold);
+    final List<Widget> cells = [
+      Text('Nombre', style: style),
+      Text(isForCwp ? 'Valor' : 'Tipo', style: style),
+      Text('Acción', style: style),
+    ];
 
-    return TableRow(children: [...headers]);
+    if (headersHook != null) headersHook!(cells);
+
+    return TableRow(children: cells);
   }
 
   TableRow _buildTableRow(ItemMapping mapping) {
