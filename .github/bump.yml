@@ -18,7 +18,7 @@ release:
     - replace-prefix: 'dependency: '
       new-prefix: ''
 branch:
-  base-branch: master
+  base-branch: master2
   create-major-version-branch: false
 categories:
   - title: 'Breaking Changes!'
@@ -30,6 +30,7 @@ categories:
   - title: 'Changes'
     labels:
       - 'Feature'
+      - 'enhancement'
     commits:
       - 'feature:'
     changes-prefix: ':gift: '

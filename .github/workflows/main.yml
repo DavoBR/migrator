@@ -13,7 +13,7 @@ on:
       bump:
         description: 'bump type, major or minor or patch or empty string'
         default: ''
-        required: true
+        required: false
       dry_run:
         description: 'dry run, true or false'
         default: 'false'
@@ -35,7 +35,7 @@ jobs:
 
       - name: Bump version 
         uses: MeilCli/bump-release-action@v1
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         id: bump
         with:
           config_path: '.github/bump.yml'
@@ -127,7 +127,7 @@ jobs:
 
       - name: Upload release asset
         uses: actions/upload-release-asset@v1
-        if: github.event_name == 'push'  
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'  
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
