@@ -1,36 +1,77 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:recase/recase.dart';
 
 extension AsyncSnapshotX<T> on AsyncSnapshot<T> {
-  bool isWaiting() => this.connectionState == ConnectionState.waiting;
-  bool isDone() => this.connectionState == ConnectionState.done;
-  bool isActive() => this.connectionState == ConnectionState.active;
-  bool isNone() => this.connectionState == ConnectionState.none;
-
   R when<R>({
     required R Function() waiting,
     required R Function(T?) data,
-    required R Function(dynamic error) error,
-    R Function()? none,
+    required R Function(dynamic error, StackTrace? stackTrace) error,
   }) {
-    if (this.isDone()) {
-      return this.hasError ? error(this.error) : data(this.data);
+    if (hasError) {
+      return error(error, stackTrace);
+    } else if (hasData) {
+      return data(this.data);
+    } else {
+      return waiting();
     }
-
-    if (this.isNone()) {
-      return none != null ? none() : data(null);
-    }
-
-    return waiting();
   }
 }
 
 extension FutureX<T> on Future<T> {
-  Future<R> when<R>({
-    required R Function(T) done,
-    required R Function(T) error,
+  FutureBuilder<T> when({
+    required Widget Function() waiting,
+    required Widget Function(T?) data,
+    required Widget Function(dynamic error, StackTrace? stackTrace) error,
+    T? initialData,
   }) {
-    return this.then((value) => done(value), onError: (err) => error(err));
+    return FutureBuilder<T>(
+      future: this,
+      initialData: initialData,
+      builder: (_, snapshot) => snapshot.when(
+        waiting: waiting,
+        data: data,
+        error: error,
+      ),
+    );
+  }
+}
+
+extension StreamX<T> on Stream<T> {
+  StreamBuilder<T> when({
+    required Widget Function() waiting,
+    required Widget Function(T?) data,
+    required Widget Function(dynamic error, StackTrace? stackTrace) error,
+    T? initialData,
+  }) {
+    return StreamBuilder<T>(
+      stream: this,
+      initialData: initialData,
+      builder: (_, snapshot) => snapshot.when(
+        waiting: waiting,
+        data: data,
+        error: error,
+      ),
+    );
+  }
+}
+
+extension RxStatusX<T> on RxStatus {
+  R when<R>({
+    required R Function() success,
+    required R Function() loading,
+    required R Function(String? error) error,
+    R Function()? loadingMore,
+  }) {
+    if (isLoadingMore && loadingMore != null) {
+      return loadingMore();
+    } else if (isSuccess) {
+      return success();
+    } else if (isError) {
+      return error(errorMessage);
+    } else {
+      return loading();
+    }
   }
 }
 
@@ -60,11 +101,6 @@ extension MapX<K, V> on Map<K, V> {
 }
 
 extension ListX<T> on List<T> {
-  List<T> sortBy<R>(Comparable Function(T) field) {
-    this.sort((a, b) => field(a).compareTo(field(b)));
-    return this;
-  }
-
   List<R> distinct<R>(R Function(T) field) {
     return this.map((e) => field(e)).toSet().toList();
   }

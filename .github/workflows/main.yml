@@ -13,10 +13,10 @@ on:
       bump:
         description: 'bump type, major or minor or patch or empty string'
         default: ''
-        required: true
+        required: false
       dry_run:
         description: 'dry run, true or false'
-        default: 'false'
+        default: 'true'
         required: false
       draft:
         description: 'draft, true or false'
@@ -32,48 +32,70 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Init Vars
+        id: vars
+        shell: bash
+        run: |
+          sourceBranch="${{ github.head_ref || github.ref }}" 
+          sourceBranch="${sourceBranch/refs\/heads\//''}"
+
+          echo "::set-output name=source_branch::$sourceBranch"
+
+          if [ "$sourceBranch" != "master" ] 
+          then 
+            git switch -c master
+          fi
 
       - name: Bump version 
         uses: MeilCli/bump-release-action@v1
-        if: github.event_name == 'push'
         id: bump
         with:
           config_path: '.github/bump.yml'
-          bump: ${{ github.event.inputs.bump }}
-          dry_run: ${{ github.event.inputs.dry_run }}
-          draft: ${{ github.event.inputs.draft }}
-          pre_release: ${{ github.event.inputs.pre_release }}
+          bump: ${{ github.event.inputs.bump || '' }}
+          dry_run: ${{ github.event.inputs.dry_run || github.event_name == 'pull_request' }}
+          draft: ${{ github.event.inputs.draft || 'true' }}
+          pre_release: ${{ github.event.inputs.pre_release || 'false' }}
+          commit_user: DavoBR
+          commit_email: davbr87@gmail.com
 
-      - name: Version
+      - name: Version Name
         id: version
         shell: bash
         env:
           NEXT_VERSION: ${{ steps.bump.outputs.next_version }}
+          BRANCH_NAME: ${{ steps.vars.outputs.source_branch }}
+          RUN_NUMBER: ${{ github.run_number }}
         run: |
-          if [ -z "$NEXT_VERSION" ] 
+          version=$NEXT_VERSION
+
+          if [ "$BRANCH_NAME" != "master" ] 
           then
-            echo '::set-output name=next_version::0.0.0'
-          else
-            echo "::set-output name=next_version::$NEXT_VERSION"
+            version="${version}-${BRANCH_NAME/\//-}-$RUN_NUMBER"
           fi 
+
+          echo "::set-output name=name::$version"
 
       - name: Update version in files
         shell: bash
         env:
-          NEXT_VERSION: ${{ steps.version.outputs.next_version }}
+          NEXT_VERSION: ${{ steps.bump.outputs.next_version }}
+          VERSION_NAME: ${{ steps.version.outputs.name }}
         run: |
           major=$(echo $NEXT_VERSION | cut -d '.' -f1)
           minor=$(echo $NEXT_VERSION | cut -d '.' -f2)
           patch=$(echo $NEXT_VERSION | cut -d '.' -f3)
 
           sed -i "s/1,0,0/$major,$minor,$patch/g" ./windows/runner/Runner.rc
-          sed -i "s/1.0.0/$NEXT_VERSION/g" ./windows/runner/Runner.rc
+          sed -i "s/1.0.0/$VERSION_NAME/g" ./windows/runner/Runner.rc
 
           sed -i "s/VERSIONMAJOR 1/VERSIONMAJOR $major/g" ./installer/script.nsi
           sed -i "s/VERSIONMINOR 0/VERSIONMINOR $minor/g" ./installer/script.nsi
           sed -i "s/VERSIONBUILD 0/VERSIONBUILD $patch/g" ./installer/script.nsi
 
-          sed -i "s/APP_VERSION = 'debug'/APP_VERSION = 'v$NEXT_VERSION'/g" ./lib/utils/constants.dart
+          sed -i "s/APP_VERSION = 'debug'/APP_VERSION = 'v$VERSION_NAME'/g" ./lib/utils/constants.dart
 
       - name: Setup java
         uses: actions/setup-java@v1
@@ -84,7 +106,7 @@ jobs:
         uses: subosito/flutter-action@v1
         with:
           channel: stable
-          flutter-version: '2.0.4'
+          flutter-version: '2.2.0'
 
       - run: flutter config --enable-windows-desktop
       - run: flutter pub get
@@ -116,22 +138,22 @@ jobs:
       - name: Upload portable artifact
         uses: actions/upload-artifact@v2
         with:
-          name: 'migrator-v${{ steps.version.outputs.next_version }}-win-x64'
+          name: 'migrator-v${{ steps.version.outputs.name }}-win-x64'
           path: ${{github.workspace}}/build/windows/runner/Release/
 
       - name: Upload installer artifact
         uses: actions/upload-artifact@v2
         with:
-          name: 'migrator-v${{ steps.version.outputs.next_version }}-win-x64-setup'
+          name: 'migrator-v${{ steps.version.outputs.name }}-win-x64-setup'
           path: ${{github.workspace}}/installer/setup.exe
 
       - name: Upload release asset
         uses: actions/upload-release-asset@v1
-        if: github.event_name == 'push'  
+        if: github.event_name != 'pull_request' && github.event.inputs.dry_run != 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ fromJson(steps.bump.outputs.release).upload_url }} 
           asset_path: '${{github.workspace}}/installer/setup.exe'
-          asset_name: 'CA_API_Gateway_Migrator_v${{ steps.bump.outputs.next_version }}.exe'
+          asset_name: 'CA_API_Gateway_Migrator_v${{ steps.version.outputs.name }}.exe'
           asset_content_type: application/octet-stream

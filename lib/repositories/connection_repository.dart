@@ -1,55 +1,64 @@
 import 'dart:convert';
 
-import 'package:migrator/models/models.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
+import 'package:get/get.dart';
+
+import 'package:migrator/models/models.dart';
+import 'package:migrator/utils/storages.dart';
+import 'package:migrator/utils/utils.dart';
 
 class ConnectionRepository {
-  Future<List<Connection>> fetchList() async {
-    final prefs = await SharedPreferences.getInstance();
-    final json = jsonDecode(prefs.getString('connections') ?? '[]');
-    final list =
-        List.of(json).map((json) => Connection.fromJson(json)).toList();
+  final connections = List<Connection>.empty().obs;
 
-    await _migrate(list);
-
-    return list;
+  ConnectionRepository() {
+    _load();
   }
 
-  Future<void> _migrate(List<Connection> list) async {
-    if (!list.any((c) => c.id.isEmpty)) return;
+  void _load() {
+    final List<Connection> list = [];
+    Storages.connections
+        .getValues()
+        .forEach((map) => list.add(Connection.fromJson(map)));
 
-    list.forEach((c) {
-      if (c.id.isEmpty) {
-        c.id = Uuid().v4();
-      }
-    });
-
-    _saveList(list);
+    connections.value = list;
   }
 
-  Future<void> _saveList(List<Connection> list) async {
-    final prefs = await SharedPreferences.getInstance();
-    prefs.setString('connections', jsonEncode(list));
+  static Future<void> migrate() async {
+    var keys = Storages.connections.getKeys();
+    if (keys.isNotEmpty) return;
+
+    try {
+      // migrate from SharedPrefs (v1.1.1)
+      final prefs = await SharedPreferences.getInstance();
+      final list = List.of(jsonDecode(prefs.getString('connections') ?? '[]'))
+          .map((data) => Connection.fromJson(data));
+
+      // asign connection id (v1.0.1)
+      list.where((c) => c.id.isEmpty).forEach((c) => c.id = Uuid().v4());
+
+      // save in new storage
+      list.forEach((c) async {
+        await Storages.connections.write(c.id, c.toJson());
+      });
+    } catch (error, st) {
+      logError(error, stackTrace: st, message: 'Error migrando conexiones');
+    }
   }
 
-  Future<void> create(Connection connection) async {
-    connection.id = Uuid().v4();
-    final connections = await fetchList();
-    await _saveList([...connections, connection]);
+  void save(Connection connection) {
+    if (connection.id.isEmpty) {
+      connection.id = Uuid().v4();
+    }
+
+    Storages.connections.write(connection.id, connection.toJson());
+
+    _load();
   }
 
-  Future<void> update(Connection target) async {
-    final connections = await fetchList();
-    await _saveList(connections
-        .map((connection) => connection.id == target.id ? target : connection)
-        .toList());
-  }
+  void delete(Connection connection) {
+    Storages.connections.remove(connection.id);
 
-  Future<void> delete(Connection target) async {
-    final connections = await fetchList();
-    await _saveList(
-      connections.where((connection) => connection.id != target.id).toList(),
-    );
+    _load();
   }
 }

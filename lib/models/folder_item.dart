@@ -1,5 +1,6 @@
 import 'package:xml/xml.dart';
 
+import 'item.dart';
 import 'item_in_folder.dart';
 
 class FolderItem extends ItemInFolder {
@@ -12,4 +13,8 @@ class FolderItem extends ItemInFolder {
           ?.getElement('l7:Folder')
           ?.getAttribute('folderId') ??
       '';
+
+  factory FolderItem.empty() {
+    return FolderItem(Item.empty().element);
+  }
 }

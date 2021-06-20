@@ -24,9 +24,17 @@ class Item {
 
   String get rawType => element.getElement('l7:Type')?.text ?? '';
 
-  ItemType get type => parseEnum(
-        ItemType.values,
-        rawType.toCamelCase(),
-        orElse: () => ItemType.unknown,
-      );
+  ItemType get type {
+    return parseEnum(
+      ItemType.values,
+      rawType.toCamelCase(),
+      orElse: () => ItemType.unknown,
+    );
+  }
+
+  bool get isEmpty => element.children.isEmpty;
+
+  factory Item.empty() {
+    return Item(XmlElement(XmlName('Item')));
+  }
 }

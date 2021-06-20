@@ -1,60 +1,53 @@
-import 'package:flutter/material.dart';
-import 'package:tuple/tuple.dart';
+import 'package:collection/collection.dart';
+import 'package:flutter/services.dart';
+import 'package:get/get.dart';
 import 'package:xml/xml.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:migrator/utils/utils.dart';
 import 'package:migrator/models/models.dart';
-import 'package:migrator/providers/providers.dart';
 import 'package:migrator/services/services.dart';
 
-class MigrateInController
-    extends StateNotifier<AsyncValue<BundleMappingsItem>> {
-  Reader _read;
+import 'controllers.dart';
 
-  RestmanService get _restman => _read(restmanServiceProvider);
+class MigrateInController extends GetxController {
+  final _restman = Get.put(RestmanService());
+  final _connCtrl = Get.find<ConnectionsSelectionController>();
+  final _migrateOutCtrl = Get.find<MigrateOutController>();
+  final _itemsCtrl = Get.find<ItemsSelectionController>();
+  final migrateInStatus = RxStatus.empty().obs;
+  final mappingResult = BundleMappingsItem.empty().obs;
+  final isTesting = false.obs;
 
-  Connection get _connection {
-    final connection = _read(targetConnectionProvider).state;
-
-    if (connection == null) {
-      final error = Exception('No se ha selecionado una conexión destino');
-      state = AsyncValue.error(error);
-      throw error;
-    }
-
-    return connection;
+  @override
+  void onInit() {
+    migrateIn(true, '');
+    super.onInit();
   }
-
-  MigrateInController(this._read) : super(AsyncValue.loading());
 
   Future<void> migrateIn(bool test, String versionComment) async {
-    state = AsyncValue.loading();
+    try {
+      migrateInStatus.value = RxStatus.loading();
+      final bundleXml = await _buildBundleXml();
 
-    final keyPassPhrase = _read(migratePassPhraseProvider).state;
-    final bundleXml = await buildBundleXml();
-    final resultTypeCtrl = _read(migrateResultTypeProvider);
+      isTesting.value = test;
 
-    resultTypeCtrl.state = MigrateResultType.none;
+      mappingResult.value = await _restman.migrateIn(
+        _connCtrl.target.value,
+        bundleXml,
+        test: test,
+        versionComment: versionComment,
+        keyPassPhrase: _migrateOutCtrl.keyPassPhrase,
+      );
 
-    final result = await _restman.migrateIn(
-      _connection,
-      bundleXml,
-      test: test,
-      versionComment: versionComment,
-      keyPassPhrase: keyPassPhrase,
-    );
-
-    resultTypeCtrl.state =
-        test ? MigrateResultType.test : MigrateResultType.live;
-
-    state = AsyncValue.data(result);
+      migrateInStatus.value = RxStatus.success();
+    } catch (error, st) {
+      logError(error, stackTrace: st, message: 'MigrateIn [test: $test]');
+      migrateInStatus.value = RxStatus.error(error.toString());
+    }
   }
 
-  Future<String> buildBundleXml() async {
-    final bundle = _read(migrateOutProvider.state).data?.value;
-
-    if (bundle == null) throw Exception("migrateOut bundle is null");
+  Future<String> _buildBundleXml({bool pretty: false}) async {
+    final bundle = _migrateOutCtrl.bundle.value;
 
     final bundleElement = bundle.element
         .getElement('l7:Resource')
@@ -63,6 +56,7 @@ class MigrateInController
 
     if (bundleElement == null) throw Exception("migrateOut bundle invalid XML");
 
+    // copiar namespace
     bundleElement.setAttribute(
       'xmlns:l7',
       bundle.element.getAttribute('xmlns:l7'),
@@ -74,7 +68,7 @@ class MigrateInController
     // actualizar los valores de los cwp mopdificados
     _configureClusterPropValues(bundleElement);
 
-    return bundleElement.toXmlString();
+    return bundleElement.toXmlString(pretty: pretty);
   }
 
   Future<void> _configureMappings(XmlElement bundleElement) async {
@@ -85,8 +79,7 @@ class MigrateInController
 
       _setMappingAction(mappingElement);
       _setMappingProps(mappingElement);
-
-      await _addNewFolders(mappingElement, bundleElement);
+      _addReference(mappingElement, bundleElement);
     }
   }
 
@@ -100,7 +93,7 @@ class MigrateInController
       final id = cwpElement.getElement('l7:Id')?.text;
 
       if (id == null) {
-        print('CWP Id element no found in the bundle: $name');
+        log('CWP Id element no found in the bundle: $name');
         continue;
       }
 
@@ -110,22 +103,15 @@ class MigrateInController
           ?.getElement('l7:Value');
 
       if (valueElement == null) {
-        print('CWP Value element no found in the bundle: $name');
+        log('CWP Value element no found in the bundle: $name');
         continue;
       }
 
-      final userValue = _read(cwpValueFamily(id)).state;
-
-      if (userValue != null && userValue != valueElement.text) {
-        valueElement.innerText = userValue;
-      }
+      valueElement.innerText = _migrateOutCtrl.cwpValues[id]!.value;
     }
   }
 
-  Future _addNewFolders(
-    XmlElement mappingElement,
-    XmlElement bundleElement,
-  ) async {
+  _addReference(XmlElement mappingElement, XmlElement bundleElement) {
     final srcId = mappingElement.getAttribute('srcId')!;
     final type = mappingElement.getAttribute('type')!;
     final action = mappingElement.getAttribute('action')!;
@@ -134,11 +120,11 @@ class MigrateInController
     if (referencesElement == null)
       throw Exception('Bundle no have References tag');
 
-    // agregar las definiciones de los folders marcados como new
+    // agregar referencia de los folder marcados como new
     if (type == 'FOLDER' && action.startsWith('New')) {
       //buscar definicion en la lista de folders descargados
-      final folder = await _read(
-        migrateOutItemFamily(Tuple2(srcId, ItemType.folder)).future,
+      final folder = _itemsCtrl.items.firstWhereOrNull(
+        (item) => item.id == srcId && item.type == ItemType.folder,
       );
 
       if (folder == null)
@@ -151,7 +137,7 @@ class MigrateInController
 
   void _setMappingProps(XmlElement mappingElement) {
     final srcId = mappingElement.getAttribute('srcId')!;
-    final props = _read(mappingPropsFamily(srcId)).state;
+    final props = _migrateOutCtrl.mappingProps[srcId]!;
 
     if (props.isEmpty) return;
 
@@ -196,8 +182,7 @@ class MigrateInController
   void _setMappingAction(XmlElement mappingElement) {
     final srcId = mappingElement.getAttribute('srcId')!;
     final defaultAction = mappingElement.getAttribute('action');
-    final mappingAction = _read(mappingActionFamily(srcId))
-        .state
+    final mappingAction = _migrateOutCtrl.mappingActions[srcId]!
         .toString()
         .split('.')[1]
         .toPascalCase();
@@ -205,5 +190,16 @@ class MigrateInController
     if (mappingAction != defaultAction) {
       mappingElement.setAttribute('action', mappingAction);
     }
+  }
+
+  Future<void> copyBundleToClipboard() async {
+    Clipboard.setData(
+      ClipboardData(text: await _buildBundleXml(pretty: true)),
+    );
+
+    Get.snackbar(
+      'Bundle copiado',
+      'Se ha copiado el bundle de la migración al portapapeles',
+    );
   }
 }

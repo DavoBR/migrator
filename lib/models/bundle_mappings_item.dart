@@ -6,6 +6,21 @@ import 'item_mapping.dart';
 class BundleMappingsItem extends Item {
   BundleMappingsItem(XmlElement element) : super(element);
 
+  bool get isTest {
+    final flag = element
+        .getElement('l7:Link')
+        ?.getAttribute('uri')
+        ?.contains('test=true');
+
+    if (flag == null) {
+      throw Exception(
+        'XML no es valido, no se puede validar el resultado de la migración',
+      );
+    }
+
+    return flag;
+  }
+
   List<ItemMapping> get mappings {
     return element
             .getElement('l7:Resource')
@@ -14,5 +29,9 @@ class BundleMappingsItem extends Item {
             .map((e) => ItemMapping(e))
             .toList() ??
         [];
+  }
+
+  factory BundleMappingsItem.empty() {
+    return BundleMappingsItem(Item.empty().element);
   }
 }

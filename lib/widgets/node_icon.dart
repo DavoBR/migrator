@@ -1,35 +1,44 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:get/get.dart';
 
 import 'package:migrator/models/models.dart';
-import 'package:migrator/providers/providers.dart';
+import 'package:migrator/utils/utils.dart';
+import 'package:migrator/widgets/widgets.dart';
 
-class NodeIcon extends HookWidget {
+class NodeIcon extends StatelessWidget {
   final ItemInFolder _item;
+  final RxStatus? _status;
 
-  NodeIcon(this._item);
+  NodeIcon(this._item, this._status);
 
   @override
   Widget build(BuildContext context) {
+    return Case(
+      children: [
+        When(_status == null, (_) => _buildIcon()),
+        Otherwise(
+          (_) => _status!.when(
+            success: () => _buildIcon(),
+            // TODO mostrar icono de error y un dialog al hacer click
+            error: (error) => _buildIcon(),
+            loading: () => SizedBox(
+              width: 18.0,
+              height: 18.0,
+              child: CircularProgressIndicator(strokeWidth: 2.0),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildIcon() {
     Color? color;
     IconData icon;
     double size = 18.0;
 
-    final isLoading = useProvider(folderIsLoadingFamily(_item.id)).state;
-
     switch (_item.type) {
       case ItemType.folder:
-        if (isLoading) {
-          return SizedBox(
-            width: 18.0,
-            height: 18.0,
-            child: CircularProgressIndicator(
-              strokeWidth: 2.0,
-            ),
-          );
-        }
-
         icon = Icons.folder;
         color = Colors.green;
         break;

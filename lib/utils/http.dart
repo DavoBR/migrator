@@ -5,7 +5,7 @@ import 'dart:typed_data';
 Future<HttpClientResponse> http(
   String method,
   String url, {
-  Map<String, dynamic?> params = const {},
+  Map<String, dynamic> params = const {},
   Map<String, String?> headers = const {},
   String? body,
   String? contentType,
@@ -78,6 +78,6 @@ Future<HttpClientResponse> http(
 
     return response;
   } on SocketException {
-    throw Exception('Revisa la conexión a internet 😑');
+    throw Exception('Revisa la conexión a internet 😟');
   }
 }
