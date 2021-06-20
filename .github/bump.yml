@@ -23,37 +23,38 @@ branch:
 categories:
   - title: 'Breaking Changes!'
     labels:
-      - 'BreakingChange'
+      - 'breaking-change'
     commits:
       - 'breaking:'
     changes-prefix: ':warning: '
   - title: 'Changes'
     labels:
-      - 'Feature'
+      - 'feature'
+      - 'enhancement'
     commits:
       - 'feature:'
     changes-prefix: ':gift: '
   - title: 'Changes'
     labels:
-      - Maintenance
+      - maintenance
     commits:
       - 'change:'
     changes-prefix: ':hammer: '
   - title: 'Bug Fixes'
     labels:
-      - 'Bug'
+      - 'bug'
     commits:
       - 'fix:'
     changes-prefix: ':ambulance: '
   - title: 'Changes'
     labels:
-      - 'Documentation'
+      - 'documentation'
     commits:
       - 'document:'
     changes-prefix: ':blue_book: '
   - title: 'Dependency Updates'
     labels:
-      - 'Dependencies'
+      - 'dependencies'
     skip-label: 'Development'
     commits:
       - 'dependency:'
@@ -62,12 +63,13 @@ bump:
   default: 'patch'
   major:
     labels:
-      - 'BreakingChange'
+      - 'breaking-change'
     commits:
       - 'breaking:'
   minor:
     labels:
-      - 'Feature'
+      - 'feature'
+      - 'enhancement'
     commits:
       - 'feature:'
       - 'feat:'
